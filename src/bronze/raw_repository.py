@@ -1,9 +1,13 @@
+"""
+Repositório de dados brutos da camada Bronze.
+Responsável por persistir os dados brutos no MongoDB.
+"""
 from pymongo import MongoClient
 
 
-class MongoDBLoader:
+class RawRepository:
     """
-    Responsável por carregar os dados tratados no MongoDB Atlas.
+    Repositório para persistência de dados brutos na camada Bronze.
     """
 
     def __init__(self, uri: str, database_name: str, collection_name: str) -> None:

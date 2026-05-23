@@ -1,71 +1,64 @@
 """
-Orquestrador Prefect — PNCP MEI Oportunidades
-==============================================
-Executa sequencialmente os 4 pipelines do projeto:
-  1. ETL Contratações       — extrai e carrega dados da API PNCP no MongoDB
-  2. Alertas de Prazo       — identifica licitações com encerramento próximo
-  3. Comparação Temporal    — detecta novas oportunidades (hoje vs ontem)
-  4. Categorização MEI      — classifica licitações por segmento via Gemini
+Orquestrador Prefect — PNCP MEI Pipeline
+=========================================
+Executa o pipeline completo:
+  1. Bronze Layer  → Extração API PNCP → MongoDB + Kafka
+  2. Silver Layer  → Spark Streaming + Gemini AI → MongoDB + Iceberg
 
-Uso rápido:
+Uso:
+    # Execução única
     python orchestrate_prefect.py
 
-Agendamento diário (Prefect serve):
-    python -c "from orchestrate_prefect import pncp_orchestrator; \
-               from prefect.schedules import CronSchedule; \
-               pncp_orchestrator.serve(name='pncp-diario', \
-                                       cron='0 7 * * *')"
+    # Com Prefect Server + agendamento
+    ./run_prefect.sh
 """
 
 from __future__ import annotations
-
+import time
 from datetime import date, timedelta
+from threading import Thread
 
-from prefect import flow, task, get_run_logger
+from prefect import flow, task, get_run_logger, serve
 
+from src.bronze.pncp_transformer import PNCPTransformer
 from src.config.settings import Settings
-from src.extract.pncp_extractor import PNCPExtractor
-from src.transform.pncp_transformer import PNCPTransformer
-from src.load.mongodb_loader import MongoDBLoader
-from src.pipeline.etl_pipeline import ETLPipeline
-from src.pipeline.deadline_alerts import DeadlineAlertsPipeline
-from src.pipeline.temporal_comparison import TemporalComparisonPipeline
-from src.pipeline.mei_categorization import MEICategorizationPipeline
+from src.bronze.pncp_client import PNCPClient
+from src.bronze.raw_repository import RawRepository
+from src.bronze.kafka_publisher import BronzeKafkaPublisher
+from src.bronze.ingestion_job import BronzeIngestionJob
+from src.silver.streaming_job import SilverStreamingJob
 
 
-# ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
-
-def _build_loader() -> MongoDBLoader:
-    return MongoDBLoader(
-        uri=Settings.MONGO_URI,
-        database_name=Settings.MONGO_DATABASE,
-        collection_name=Settings.MONGO_COLLECTION,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Tasks — cada @task é uma unidade rastreável no Prefect UI
-# ---------------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────────────────
+# Tasks
+# ───────────────────────────────────────────────────────────────────────────
 
 @task(name="Validar Configurações", retries=0)
 def task_validate_settings() -> None:
     Settings.validate()
-    get_run_logger().info("Configurações validadas com sucesso.")
+    get_run_logger().info("✅ Configurações validadas")
 
 
-@task(name="ETL Contratações", retries=2, retry_delay_seconds=60)
-def task_etl_contratacoes(data_inicial: str, data_final: str) -> dict:
+@task(name="Bronze Layer — Ingestão", retries=2, retry_delay_seconds=60)
+def task_bronze_ingestion(data_inicial: str, data_final: str) -> dict:
     logger = get_run_logger()
-    logger.info(f"Extraindo contratações de {data_inicial} a {data_final}")
+    logger.info(f"📥 Extraindo contratações: {data_inicial} → {data_final}")
 
-    pipeline = ETLPipeline(
-        extractor=PNCPExtractor(base_url=Settings.PNCP_BASE_URL),
+    job = BronzeIngestionJob(
+        pncp_client=PNCPClient(base_url=Settings.PNCP_BASE_URL),
         transformer=PNCPTransformer(),
-        loader=_build_loader(),
+        raw_repository=RawRepository(
+            uri=Settings.MONGO_URI,
+            database_name=Settings.MONGO_DATABASE,
+            collection_name=Settings.MONGO_COLLECTION,
+        ),
+        kafka_publisher=BronzeKafkaPublisher(
+            bootstrap_servers=Settings.KAFKA_BOOTSTRAP_SERVERS,
+            topic=Settings.KAFKA_BRONZE_TOPIC,
+        ),
     )
-    result = pipeline.run(
+
+    result = job.run(
         endpoint="/v1/contratacoes/publicacao",
         params={
             "dataInicial": data_inicial,
@@ -75,97 +68,120 @@ def task_etl_contratacoes(data_inicial: str, data_final: str) -> dict:
     )
 
     logger.info(
-        f"ETL concluído — extraídos: {result['raw_records_count']}, "
-        f"processados: {result.get('processed_records_count', 0)}"
+        f"✅ Bronze concluída — "
+        f"Extraídos: {result['raw_records_count']}, "
+        f"MongoDB: {result['mongo_upserted_count']}, "
+        f"Kafka: {result['kafka_published_count']}"
     )
     return result
 
 
-@task(name="Alertas de Prazo")
-def task_deadline_alerts(dias_alerta: int = 7) -> dict:
+@task(name="Silver Layer — Streaming + IA", timeout_seconds=3600)
+def task_silver_streaming(duration_seconds: int = 600) -> dict:
+    """Executa Spark Streaming processando mensagens Kafka por um período."""
     logger = get_run_logger()
-    result = DeadlineAlertsPipeline(loader=_build_loader(), dias_alerta=dias_alerta).run()
-    logger.info(f"Alertas encontrados: {result['total_alertas']}")
-    return result
+    logger.info(f"🔄 Iniciando Silver Streaming ({duration_seconds}s)...")
+
+    def run_streaming():
+        job = SilverStreamingJob(
+            kafka_bootstrap_servers=Settings.KAFKA_BOOTSTRAP_SERVERS,
+            kafka_topic=Settings.KAFKA_BRONZE_TOPIC,
+            mongo_uri=Settings.MONGO_URI,
+            mongo_database=Settings.MONGO_DATABASE,
+            mongo_collection=Settings.MONGO_SILVER_COLLECTION,
+            gemini_api_key=Settings.GEMINI_API_KEY,
+            iceberg_warehouse=Settings.ICEBERG_WAREHOUSE_PATH,
+            iceberg_database=Settings.ICEBERG_DATABASE,
+            iceberg_table=Settings.ICEBERG_TABLE,
+            checkpoint_location=Settings.SPARK_CHECKPOINT_DIR,
+        )
+        job.run()
+
+    # Rodar em thread daemon
+    thread = Thread(target=run_streaming, daemon=True)
+    thread.start()
+
+    # Aguardar duração
+    time.sleep(duration_seconds)
+
+    logger.info(f"✅ Silver Streaming finalizado ({duration_seconds}s)")
+    return {"duration_seconds": duration_seconds, "status": "completed"}
 
 
-@task(name="Comparação Temporal")
-def task_temporal_comparison() -> dict:
-    logger = get_run_logger()
-    result = TemporalComparisonPipeline(loader=_build_loader()).run()
-    logger.info(
-        f"Hoje: {result['total_hoje']} | Ontem: {result['total_ontem']} | "
-        f"Novas: {result['novas_oportunidades']}"
-    )
-    return result
+# ───────────────────────────────────────────────────────────────────────────
+# Flow Principal
+# ───────────────────────────────────────────────────────────────────────────
 
-
-@task(name="Categorização MEI (Gemini)")
-def task_mei_categorization(limit: int = 50) -> dict:
-    logger = get_run_logger()
-    result = MEICategorizationPipeline(
-        loader=_build_loader(),
-        gemini_api_key=Settings.GEMINI_API_KEY,
-    ).run(limit=limit)
-    logger.info(f"Categorizados: {result['categorizados']} | Erros: {result['erros']}")
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Flow principal — orquestra todos os pipelines
-# ---------------------------------------------------------------------------
-
-@flow(name="PNCP MEI — Orquestrador Principal", log_prints=True)
-def pncp_orchestrator(
+@flow(name="PNCP MEI Pipeline", log_prints=True)
+def pncp_pipeline(
     data_inicial: str | None = None,
     data_final: str | None = None,
-    dias_alerta: int = 7,
-    categorization_limit: int = 50,
+    run_silver: bool = True,
+    silver_duration_seconds: int = 600,
 ) -> dict:
     """
-    Flow principal do projeto PNCP MEI.
+    Pipeline completo PNCP MEI: Bronze + Silver.
 
     Args:
-        data_inicial: Data inicial no formato YYYYMMDD (padrão: ontem).
-        data_final: Data final no formato YYYYMMDD (padrão: hoje).
-        dias_alerta: Janela em dias para alertas de prazo de encerramento.
-        categorization_limit: Máximo de registros a categorizar por execução.
+        data_inicial: Data inicial YYYYMMDD (padrão: ontem).
+        data_final: Data final YYYYMMDD (padrão: hoje).
+        run_silver: Executar Silver streaming (padrão: True).
+        silver_duration_seconds: Duração Silver em segundos (padrão: 600).
 
     Returns:
-        Dicionário com o resultado consolidado de cada pipeline.
+        Resultados de cada camada.
     """
+    # Definir datas
     hoje = date.today()
     if data_inicial is None:
         data_inicial = (hoje - timedelta(days=1)).strftime("%Y%m%d")
     if data_final is None:
         data_final = hoje.strftime("%Y%m%d")
 
-    # ── 1. Validação ───────────────────────────────────────────────────────
+    # Validar
     task_validate_settings()
 
-    # ── 2. ETL principal ───────────────────────────────────────────────────
-    etl_result = task_etl_contratacoes(
-        data_inicial=data_inicial,
-        data_final=data_final,
-    )
+    # Bronze
+    bronze_result = task_bronze_ingestion(data_inicial, data_final)
 
-    # ── 3. Alertas de prazo ────────────────────────────────────────────────
-    alerts_result = task_deadline_alerts(dias_alerta=dias_alerta)
-
-    # ── 4. Comparação temporal ─────────────────────────────────────────────
-    comparison_result = task_temporal_comparison()
-
-    # ── 5. Categorização MEI com IA ────────────────────────────────────────
-    categorization_result = task_mei_categorization(limit=categorization_limit)
+    # Silver (opcional)
+    silver_result = None
+    if run_silver:
+        silver_result = task_silver_streaming(silver_duration_seconds)
 
     return {
         "periodo": f"{data_inicial} → {data_final}",
-        "etl": etl_result,
-        "alertas_prazo": alerts_result,
-        "comparacao_temporal": comparison_result,
-        "categorizacao_mei": categorization_result,
+        "bronze": bronze_result,
+        "silver": silver_result,
     }
 
 
+# ───────────────────────────────────────────────────────────────────────────
+# Deployment (para Prefect Server)
+# ───────────────────────────────────────────────────────────────────────────
+
+def create_deployments():
+    """Cria deployments com agendamento."""
+
+    # Deployment diário completo
+    pncp_pipeline.serve(
+        name="pncp-pipeline-diario",
+        cron="0 7 * * *",
+        parameters={
+            "run_silver": True,
+            "silver_duration_seconds": 600,
+        },
+        tags=["production", "daily"],
+        description="Pipeline completo diário (Bronze + Silver 10min)",
+    )
+
+
 if __name__ == "__main__":
-    pncp_orchestrator()
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "serve":
+        print("🚀 Iniciando Prefect Server com deployment...")
+        create_deployments()
+    else:
+        print("▶️  Executando pipeline uma vez...")
+        pncp_pipeline()

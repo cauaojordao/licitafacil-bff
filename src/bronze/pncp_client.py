@@ -1,15 +1,19 @@
+"""
+Cliente PNCP da camada Bronze.
+Responsável por extrair dados brutos da API do PNCP.
+"""
 from typing import Any
 import requests
 
 
-class PNCPExtractor:
+class PNCPClient:
     """
-    Classe responsável por extrair dados da API do PNCP.
+    Cliente para extração de dados da API PNCP na camada Bronze.
     """
 
     def __init__(self, base_url: str, timeout: int = 30) -> None:
         """
-        Inicializa o extrator.
+        Inicializa o cliente PNCP.
 
         Args:
             base_url: URL base da API do PNCP.
