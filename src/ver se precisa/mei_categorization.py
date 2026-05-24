@@ -2,7 +2,7 @@ import time
 
 import google.generativeai as genai
 
-from src.load.mongodb_loader import MongoDBLoader
+from src.bronze.raw_repository import RawRepository
 
 SEGMENTOS_MEI = [
     "Alimentação e Bebidas",
@@ -40,7 +40,7 @@ class MEICategorizationPipeline:
     Processa registros no MongoDB que ainda não possuem o campo `segmento_mei`.
     """
 
-    def __init__(self, loader: MongoDBLoader, gemini_api_key: str) -> None:
+    def __init__(self, loader: RawRepository, gemini_api_key: str) -> None:
         if not gemini_api_key:
             raise ValueError("GEMINI_API_KEY não configurada.")
         genai.configure(api_key=gemini_api_key)

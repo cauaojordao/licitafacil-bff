@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from src.load.mongodb_loader import MongoDBLoader
+from src.bronze.raw_repository import RawRepository
 
 
 class TemporalComparisonPipeline:
@@ -11,7 +11,7 @@ class TemporalComparisonPipeline:
     Depende de que o ETLPipeline já tenha carregado os dados de ambos os dias.
     """
 
-    def __init__(self, loader: MongoDBLoader) -> None:
+    def __init__(self, loader: RawRepository) -> None:
         self.loader = loader
 
     def _ids_por_data(self, data_prefix: str) -> set[str]:

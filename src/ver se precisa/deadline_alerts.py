@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from src.load.mongodb_loader import MongoDBLoader
+from src.bronze.raw_repository import RawRepository
 
 
 class DeadlineAlertsPipeline:
@@ -10,7 +10,7 @@ class DeadlineAlertsPipeline:
     dias.
     """
 
-    def __init__(self, loader: MongoDBLoader, dias_alerta: int = 7) -> None:
+    def __init__(self, loader: RawRepository, dias_alerta: int = 7) -> None:
         self.loader = loader
         self.dias_alerta = dias_alerta
 
