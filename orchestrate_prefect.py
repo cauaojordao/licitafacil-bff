@@ -14,24 +14,25 @@ Uso:
 """
 
 from __future__ import annotations
+
 import time
 from datetime import date, timedelta
 from threading import Thread
 
-from prefect import flow, task, get_run_logger, serve
+from prefect import flow, get_run_logger, task
 
-from src.bronze.pncp_transformer import PNCPTransformer
-from src.config.settings import Settings
-from src.bronze.pncp_client import PNCPClient
-from src.bronze.raw_repository import RawRepository
-from src.bronze.kafka_publisher import BronzeKafkaPublisher
 from src.bronze.ingestion_job import BronzeIngestionJob
+from src.bronze.kafka_publisher import BronzeKafkaPublisher
+from src.bronze.pncp_client import PNCPClient
+from src.bronze.pncp_transformer import PNCPTransformer
+from src.bronze.raw_repository import RawRepository
+from src.config.settings import Settings
 from src.silver.streaming_job import SilverStreamingJob
-
 
 # ───────────────────────────────────────────────────────────────────────────
 # Tasks
 # ───────────────────────────────────────────────────────────────────────────
+
 
 @task(name="Validar Configurações", retries=0)
 def task_validate_settings() -> None:
@@ -112,6 +113,7 @@ def task_silver_streaming(duration_seconds: int = 600) -> dict:
 # Flow Principal
 # ───────────────────────────────────────────────────────────────────────────
 
+
 @flow(name="PNCP MEI Pipeline", log_prints=True)
 def pncp_pipeline(
     data_inicial: str | None = None,
@@ -159,6 +161,7 @@ def pncp_pipeline(
 # ───────────────────────────────────────────────────────────────────────────
 # Deployment (para Prefect Server)
 # ───────────────────────────────────────────────────────────────────────────
+
 
 def create_deployments():
     """Cria deployments com agendamento."""

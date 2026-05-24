@@ -2,7 +2,9 @@
 Cliente PNCP da camada Bronze.
 Responsável por extrair dados brutos da API do PNCP.
 """
-from typing import Any
+
+from typing import Any, cast
+
 import requests
 
 
@@ -39,7 +41,7 @@ class PNCPClient:
         url = f"{self.base_url}{endpoint}"
         response = requests.get(url, params=params, timeout=self.timeout)
         response.raise_for_status()
-        return response.json()
+        return cast(dict[str, Any], response.json())
 
     def fetch_all(self, endpoint: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         """

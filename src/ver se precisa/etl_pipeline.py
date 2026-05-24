@@ -1,10 +1,13 @@
+from typing import Any
+
+
 class ETLPipeline:
     """
     Classe responsável por orquestrar as etapas do ETL:
     extração, transformação e carga.
     """
 
-    def __init__(self, extractor, transformer, loader=None) -> None:
+    def __init__(self, extractor: Any, transformer: Any, loader: Any = None) -> None:
         self.extractor = extractor
         self.transformer = transformer
         self.loader = loader

@@ -2,6 +2,8 @@ requests==2.33.0
 python-dotenv==1.2.2
 pymongo>=4.9
 prefect>=2.20
-google-genai>=0.2  # Novo SDK do Google Gemini
+google-genai>=0.2
 kafka-python>=2.0.2
 pyspark>=3.5.0
+pytest==9.0.3
+pytest-cov==7.1.0

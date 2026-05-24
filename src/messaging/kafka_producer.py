@@ -1,6 +1,7 @@
 """
 Cliente Kafka Producer genérico para publicação de mensagens.
 """
+
 import json
 from typing import Any
 
@@ -21,7 +22,9 @@ class KafkaProducer:
         """
         self._producer = _KafkaProducer(
             bootstrap_servers=bootstrap_servers.split(","),
-            value_serializer=lambda v: json.dumps(v, ensure_ascii=False).encode("utf-8"),
+            value_serializer=lambda v: json.dumps(v, ensure_ascii=False).encode(
+                "utf-8"
+            ),
         )
 
     def publish(self, topic: str, message: dict[str, Any]) -> None:

@@ -2,7 +2,9 @@
 Repositório de dados processados da camada Silver.
 Persiste dados enriquecidos no MongoDB.
 """
+
 from typing import Any
+
 from pymongo import MongoClient
 
 
@@ -20,7 +22,7 @@ class SilverRepository:
             database_name: Nome do banco de dados.
             collection_name: Nome da collection (ex: 'editais_categorizados').
         """
-        self.client = MongoClient(uri)
+        self.client: MongoClient = MongoClient(uri)
         self.database = self.client[database_name]
         self.collection = self.database[collection_name]
 

@@ -1,6 +1,7 @@
 """
 Gerador de resumos simplificados de editais usando Gemini API.
 """
+
 import google.generativeai as genai
 
 
@@ -48,14 +49,14 @@ Crie um resumo SIMPLES e DIRETO (máximo 3 frases) do edital abaixo:
 
 OBJETO: {objeto_compra}
 VALOR: {valor_texto}
-MODALIDADE: {modalidade or 'Não informada'}
-ÓRGÃO: {orgao or 'Não informado'}
+MODALIDADE: {modalidade or "Não informada"}
+ÓRGÃO: {orgao or "Não informado"}
 
 Use linguagem clara e destaque o que o MEI precisa fornecer.
 """
 
         try:
             response = self.model.generate_content(prompt)
-            return response.text.strip()
+            return str(response.text.strip())
         except Exception as e:
             return f"Erro ao gerar resumo: {str(e)}"

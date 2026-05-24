@@ -12,21 +12,22 @@ Pré-requisitos: Java 11, PySpark 3.5, MongoDB Spark Connector 10.3
   # ou no Colab: !pip install pyspark
 """
 
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import DoubleType
-
 
 _MONGO_CONNECTOR = "org.mongodb.spark:mongo-spark-connector_2.12:10.3.0"
 
 
 # ─── 1. Sessão Spark ─────────────────────────────────────────────────────────
 
-def criar_sessao_spark(app_name: str = "LicitaFacil-Spark", mongo_uri: str = "") -> SparkSession:
+
+def criar_sessao_spark(
+    app_name: str = "LicitaFacil-Spark", mongo_uri: str = ""
+) -> SparkSession:
     """Inicializa SparkSession local com o conector MongoDB."""
     builder = (
-        SparkSession.builder
-        .appName(app_name)
+        SparkSession.builder.appName(app_name)
         .master("local[*]")
         .config("spark.jars.packages", _MONGO_CONNECTOR)
     )
@@ -36,6 +37,7 @@ def criar_sessao_spark(app_name: str = "LicitaFacil-Spark", mongo_uri: str = "")
 
 
 # ─── 2. Leitura — Camada Bronze (dados brutos PNCP) ──────────────────────────
+
 
 def carregar_bronze(
     spark: SparkSession,
@@ -55,8 +57,7 @@ def carregar_bronze(
       amparo_legal    {nome}
     """
     return (
-        spark.read
-        .format("mongodb")
+        spark.read.format("mongodb")
         .option("spark.mongodb.read.connection.uri", uri)
         .option("spark.mongodb.read.database", database)
         .option("spark.mongodb.read.collection", collection)
@@ -65,6 +66,7 @@ def carregar_bronze(
 
 
 # ─── 3. Normalização de tipos ─────────────────────────────────────────────────
+
 
 def normalizar_tipos(df: DataFrame) -> DataFrame:
     """
@@ -79,18 +81,36 @@ def normalizar_tipos(df: DataFrame) -> DataFrame:
       valor_total_homologado    → valor_homologado   (DoubleType)
     """
     return (
-        df
-        .withColumn("data_publicacao",   F.to_date(F.col("data_publicacao_pncp"),          "yyyy-MM-dd'T'HH:mm:ss"))
-        .withColumn("data_encerramento", F.to_date(F.col("data_encerramento_proposta"),     "yyyy-MM-dd'T'HH:mm:ss"))
-        .withColumn("data_inclusao",     F.to_date(F.col("data_inclusao"),                  "yyyy-MM-dd'T'HH:mm:ss"))
-        .withColumn("valor_estimado",    F.round(F.col("valor_total_estimado").cast(DoubleType()),   2))
-        .withColumn("valor_homologado",  F.round(F.col("valor_total_homologado").cast(DoubleType()), 2))
-        .drop("data_publicacao_pncp", "data_encerramento_proposta",
-              "valor_total_estimado", "valor_total_homologado")
+        df.withColumn(
+            "data_publicacao",
+            F.to_date(F.col("data_publicacao_pncp"), "yyyy-MM-dd'T'HH:mm:ss"),
+        )
+        .withColumn(
+            "data_encerramento",
+            F.to_date(F.col("data_encerramento_proposta"), "yyyy-MM-dd'T'HH:mm:ss"),
+        )
+        .withColumn(
+            "data_inclusao", F.to_date(F.col("data_inclusao"), "yyyy-MM-dd'T'HH:mm:ss")
+        )
+        .withColumn(
+            "valor_estimado",
+            F.round(F.col("valor_total_estimado").cast(DoubleType()), 2),
+        )
+        .withColumn(
+            "valor_homologado",
+            F.round(F.col("valor_total_homologado").cast(DoubleType()), 2),
+        )
+        .drop(
+            "data_publicacao_pncp",
+            "data_encerramento_proposta",
+            "valor_total_estimado",
+            "valor_total_homologado",
+        )
     )
 
 
 # ─── 4. Flatten de campos aninhados → formato tabular ────────────────────────
+
 
 def flatten_campos_aninhados(df: DataFrame) -> DataFrame:
     """
@@ -104,19 +124,19 @@ def flatten_campos_aninhados(df: DataFrame) -> DataFrame:
     amparo_legal    → amparo_legal_nome
     """
     return (
-        df
-        .withColumn("cnpj_orgao",        F.col("orgao_entidade.cnpj"))
-        .withColumn("razao_social",       F.col("orgao_entidade.razao_social"))
-        .withColumn("uf_sigla",           F.col("unidade_orgao.uf_sigla"))
-        .withColumn("uf_nome",            F.col("unidade_orgao.uf_nome"))
-        .withColumn("municipio",          F.col("unidade_orgao.municipio_nome"))
-        .withColumn("nome_unidade",       F.col("unidade_orgao.nome_unidade"))
-        .withColumn("amparo_legal_nome",  F.col("amparo_legal.nome"))
+        df.withColumn("cnpj_orgao", F.col("orgao_entidade.cnpj"))
+        .withColumn("razao_social", F.col("orgao_entidade.razao_social"))
+        .withColumn("uf_sigla", F.col("unidade_orgao.uf_sigla"))
+        .withColumn("uf_nome", F.col("unidade_orgao.uf_nome"))
+        .withColumn("municipio", F.col("unidade_orgao.municipio_nome"))
+        .withColumn("nome_unidade", F.col("unidade_orgao.nome_unidade"))
+        .withColumn("amparo_legal_nome", F.col("amparo_legal.nome"))
         .drop("orgao_entidade", "unidade_orgao", "amparo_legal")
     )
 
 
 # ─── 5. Agregação por modalidade ──────────────────────────────────────────────
+
 
 def agregar_por_modalidade(df: DataFrame) -> DataFrame:
     """
@@ -126,18 +146,18 @@ def agregar_por_modalidade(df: DataFrame) -> DataFrame:
     Padrão groupBy + agg do Spark, equivalente a GROUP BY no SQL.
     """
     return (
-        df
-        .groupBy("modalidade_nome")
+        df.groupBy("modalidade_nome")
         .agg(
             F.count("numero_controle_pncp").alias("total_contratos"),
-            F.round(F.sum("valor_estimado"),  2).alias("valor_total"),
-            F.round(F.avg("valor_estimado"),  2).alias("valor_medio"),
+            F.round(F.sum("valor_estimado"), 2).alias("valor_total"),
+            F.round(F.avg("valor_estimado"), 2).alias("valor_medio"),
         )
         .orderBy(F.col("total_contratos").desc())
     )
 
 
 # ─── 6. Ranking de oportunidades por estado ───────────────────────────────────
+
 
 def agregar_por_estado(df: DataFrame) -> DataFrame:
     """
@@ -147,8 +167,7 @@ def agregar_por_estado(df: DataFrame) -> DataFrame:
     Aplica após normalizar_tipos + flatten_campos_aninhados (usa coluna uf_sigla plana).
     """
     return (
-        df
-        .groupBy("uf_sigla")
+        df.groupBy("uf_sigla")
         .agg(
             F.count("*").alias("total_licitacoes"),
             F.round(F.sum("valor_estimado"), 2).alias("valor_total"),
@@ -159,6 +178,7 @@ def agregar_por_estado(df: DataFrame) -> DataFrame:
 
 # ─── 7. Filtro de licitações com prazo aberto ─────────────────────────────────
 
+
 def filtrar_licitacoes_abertas(df: DataFrame) -> DataFrame:
     """
     Retorna licitações cujo prazo de encerramento ainda não venceu.
@@ -168,8 +188,7 @@ def filtrar_licitacoes_abertas(df: DataFrame) -> DataFrame:
     Aplica após normalizar_tipos + flatten_campos_aninhados.
     """
     return (
-        df
-        .filter(F.col("data_encerramento") >= F.current_date())
+        df.filter(F.col("data_encerramento") >= F.current_date())
         .select(
             "numero_controle_pncp",
             "objeto_compra",
@@ -184,6 +203,7 @@ def filtrar_licitacoes_abertas(df: DataFrame) -> DataFrame:
 
 
 # ─── 8. Spark SQL ─────────────────────────────────────────────────────────────
+
 
 def top10_modalidades_sql(spark: SparkSession, df: DataFrame) -> DataFrame:
     """
@@ -211,6 +231,7 @@ def top10_modalidades_sql(spark: SparkSession, df: DataFrame) -> DataFrame:
 
 # ─── 9. Leitura — Camada Silver (dados enriquecidos pelo Gemini) ──────────────
 
+
 def carregar_silver(
     spark: SparkSession,
     uri: str,
@@ -227,8 +248,7 @@ def carregar_silver(
       processamento_status         string  ('success' | 'error')
     """
     return (
-        spark.read
-        .format("mongodb")
+        spark.read.format("mongodb")
         .option("spark.mongodb.read.connection.uri", uri)
         .option("spark.mongodb.read.database", database)
         .option("spark.mongodb.read.collection", collection)
@@ -237,6 +257,7 @@ def carregar_silver(
 
 
 # ─── 10. Silver — Análise por categoria CNAE MEI ─────────────────────────────
+
 
 def agregar_por_cnae(df: DataFrame) -> DataFrame:
     """
@@ -247,8 +268,7 @@ def agregar_por_cnae(df: DataFrame) -> DataFrame:
     (operação 1-para-N), depois agrega por código CNAE.
     """
     return (
-        df
-        .filter(F.col("processamento_status") == "success")
+        df.filter(F.col("processamento_status") == "success")
         .withColumn("cnae", F.explode("categorias_cnae"))
         .groupBy(
             F.col("cnae.codigo").alias("cnae_codigo"),
@@ -256,14 +276,15 @@ def agregar_por_cnae(df: DataFrame) -> DataFrame:
         )
         .agg(
             F.count("*").alias("total_licitacoes"),
-            F.round(F.avg("cnae.confianca"),        3).alias("confianca_media"),
-            F.round(F.sum("valor_total_estimado"),  2).alias("valor_total"),
+            F.round(F.avg("cnae.confianca"), 3).alias("confianca_media"),
+            F.round(F.sum("valor_total_estimado"), 2).alias("valor_total"),
         )
         .orderBy(F.col("total_licitacoes").desc())
     )
 
 
 # ─── Utilitário — Schema e preview ────────────────────────────────────────────
+
 
 def mostrar_schema_tabular(df: DataFrame, label: str = "") -> None:
     """Imprime schema, contagem e amostra do DataFrame."""
@@ -275,6 +296,7 @@ def mostrar_schema_tabular(df: DataFrame, label: str = "") -> None:
 
 
 # ─── main — Pipeline de demonstração completo ────────────────────────────────
+
 
 def main() -> None:
     """

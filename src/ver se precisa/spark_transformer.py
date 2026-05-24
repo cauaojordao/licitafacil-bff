@@ -9,28 +9,24 @@ Para rodar localmente: Docker com Java 11, ou Google Colab (pip install pyspark)
 Referência: Aula 07 — Engenharia de Dados e Big Data 2026.1
 """
 
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import DoubleType
-
 
 # ---------------------------------------------------------------------------
 # 1. Sessão Spark
 # ---------------------------------------------------------------------------
 
+
 def criar_sessao_spark(app_name: str = "LicitaFacil-Spark") -> SparkSession:
     """Inicializa uma SparkSession em modo local."""
-    return (
-        SparkSession.builder
-        .appName(app_name)
-        .master("local[*]")
-        .getOrCreate()
-    )
+    return SparkSession.builder.appName(app_name).master("local[*]").getOrCreate()
 
 
 # ---------------------------------------------------------------------------
 # 2. Leitura do MongoDB Atlas
 # ---------------------------------------------------------------------------
+
 
 def carregar_do_mongodb(
     spark: SparkSession,
@@ -42,11 +38,10 @@ def carregar_do_mongodb(
     Carrega os documentos do MongoDB Atlas em um DataFrame Spark.
 
     Requer o conector MongoDB Spark Connector adicionado à sessão:
-        .config("spark.jars.packages", "org.mongodb.spark:mongo-spark-connector_2.12:10.3.0")
+    config("spark.jars.packages", "org.mongodb.spark:mongo-spark-connector_2.12:10.3.0")
     """
     return (
-        spark.read
-        .format("mongodb")
+        spark.read.format("mongodb")
         .option("spark.mongodb.read.connection.uri", uri)
         .option("spark.mongodb.read.database", database)
         .option("spark.mongodb.read.collection", collection)
@@ -58,6 +53,7 @@ def carregar_do_mongodb(
 # 3. Exemplo — Normalização de tipos (Aula 07: withColumn + to_date + cast)
 # ---------------------------------------------------------------------------
 
+
 def normalizar_tipos(df: DataFrame) -> DataFrame:
     """
     Converte strings de data para DateType e valores monetários para DoubleType.
@@ -66,19 +62,38 @@ def normalizar_tipos(df: DataFrame) -> DataFrame:
     Os campos originais em string são substituídos pelas versões tipadas.
     """
     return (
-        df
-        .withColumn("data_publicacao", F.to_date(F.col("data_publicacao_pncp"), "yyyy-MM-dd'T'HH:mm:ss"))
-        .withColumn("data_encerramento", F.to_date(F.col("data_encerramento_proposta"), "yyyy-MM-dd'T'HH:mm:ss"))
-        .withColumn("data_inclusao", F.to_date(F.col("data_inclusao"), "yyyy-MM-dd'T'HH:mm:ss"))
-        .withColumn("valor_estimado", F.round(F.col("valor_total_estimado").cast(DoubleType()), 2))
-        .withColumn("valor_homologado", F.round(F.col("valor_total_homologado").cast(DoubleType()), 2))
-        .drop("data_publicacao_pncp", "data_encerramento_proposta", "valor_total_estimado", "valor_total_homologado")
+        df.withColumn(
+            "data_publicacao",
+            F.to_date(F.col("data_publicacao_pncp"), "yyyy-MM-dd'T'HH:mm:ss"),
+        )
+        .withColumn(
+            "data_encerramento",
+            F.to_date(F.col("data_encerramento_proposta"), "yyyy-MM-dd'T'HH:mm:ss"),
+        )
+        .withColumn(
+            "data_inclusao", F.to_date(F.col("data_inclusao"), "yyyy-MM-dd'T'HH:mm:ss")
+        )
+        .withColumn(
+            "valor_estimado",
+            F.round(F.col("valor_total_estimado").cast(DoubleType()), 2),
+        )
+        .withColumn(
+            "valor_homologado",
+            F.round(F.col("valor_total_homologado").cast(DoubleType()), 2),
+        )
+        .drop(
+            "data_publicacao_pncp",
+            "data_encerramento_proposta",
+            "valor_total_estimado",
+            "valor_total_homologado",
+        )
     )
 
 
 # ---------------------------------------------------------------------------
 # 4. Exemplo — Flatten de campos aninhados → formato tabular
 # ---------------------------------------------------------------------------
+
 
 def flatten_campos_aninhados(df: DataFrame) -> DataFrame:
     """
@@ -88,8 +103,7 @@ def flatten_campos_aninhados(df: DataFrame) -> DataFrame:
     em um DataFrame totalmente tabular, pronto para análise ou exportação.
     """
     return (
-        df
-        .withColumn("cnpj_orgao", F.col("orgao_entidade.cnpj"))
+        df.withColumn("cnpj_orgao", F.col("orgao_entidade.cnpj"))
         .withColumn("razao_social", F.col("orgao_entidade.razao_social"))
         .withColumn("uf_sigla", F.col("unidade_orgao.uf_sigla"))
         .withColumn("uf_nome", F.col("unidade_orgao.uf_nome"))
@@ -104,6 +118,7 @@ def flatten_campos_aninhados(df: DataFrame) -> DataFrame:
 # 5. Exemplo — Agregação por modalidade (groupBy + agg)
 # ---------------------------------------------------------------------------
 
+
 def agregar_por_modalidade(df: DataFrame) -> DataFrame:
     """
     Total de contratos, soma e média de valores por modalidade de licitação.
@@ -111,8 +126,7 @@ def agregar_por_modalidade(df: DataFrame) -> DataFrame:
     Padrão groupBy + agg do Spark, equivalente a um GROUP BY no SQL.
     """
     return (
-        df
-        .groupBy("modalidade_nome")
+        df.groupBy("modalidade_nome")
         .agg(
             F.count("numero_controle_pncp").alias("total_contratos"),
             F.round(F.sum("valor_total_estimado"), 2).alias("valor_total"),
@@ -126,14 +140,14 @@ def agregar_por_modalidade(df: DataFrame) -> DataFrame:
 # 6. Exemplo — Ranking de oportunidades por estado
 # ---------------------------------------------------------------------------
 
+
 def agregar_por_estado(df: DataFrame) -> DataFrame:
     """
     Concentração de licitações por UF — útil para mostrar onde estão
     as oportunidades para MEIs de cada região.
     """
     return (
-        df
-        .groupBy(F.col("unidade_orgao.uf_sigla").alias("uf"))
+        df.groupBy(F.col("unidade_orgao.uf_sigla").alias("uf"))
         .agg(
             F.count("*").alias("total_licitacoes"),
             F.round(F.sum("valor_total_estimado"), 2).alias("valor_total"),
@@ -146,6 +160,7 @@ def agregar_por_estado(df: DataFrame) -> DataFrame:
 # 7. Exemplo — Análise por segmento MEI (campo do Gemini)
 # ---------------------------------------------------------------------------
 
+
 def agregar_por_segmento_mei(df: DataFrame) -> DataFrame:
     """
     Conta e soma valores por categoria de MEI categorizada pelo Gemini.
@@ -154,8 +169,7 @@ def agregar_por_segmento_mei(df: DataFrame) -> DataFrame:
     mostrando quais segmentos têm mais oportunidades de negócio.
     """
     return (
-        df
-        .filter(F.col("segmento_mei").isNotNull())
+        df.filter(F.col("segmento_mei").isNotNull())
         .groupBy("segmento_mei")
         .agg(
             F.count("*").alias("total_licitacoes"),
@@ -170,6 +184,7 @@ def agregar_por_segmento_mei(df: DataFrame) -> DataFrame:
 # 8. Exemplo — Filtro de licitações com prazo aberto (Spark vs pipeline atual)
 # ---------------------------------------------------------------------------
 
+
 def filtrar_licitacoes_abertas(df: DataFrame) -> DataFrame:
     """
     Equivalente distribuído do que a pipeline deadline_alerts.py faz no MongoDB.
@@ -179,8 +194,10 @@ def filtrar_licitacoes_abertas(df: DataFrame) -> DataFrame:
     """
     hoje = F.current_date()
     return (
-        df
-        .filter(F.to_date(F.col("data_encerramento_proposta"), "yyyy-MM-dd'T'HH:mm:ss") >= hoje)
+        df.filter(
+            F.to_date(F.col("data_encerramento_proposta"), "yyyy-MM-dd'T'HH:mm:ss")
+            >= hoje
+        )
         .select(
             "numero_controle_pncp",
             "objeto_compra",
@@ -198,12 +215,14 @@ def filtrar_licitacoes_abertas(df: DataFrame) -> DataFrame:
 # 9. Exemplo — Spark SQL (como mostrado na Aula 07)
 # ---------------------------------------------------------------------------
 
+
 def top10_modalidades_sql(spark: SparkSession, df: DataFrame) -> DataFrame:
     """
     Registra o DataFrame como view temporária e executa SQL padrão.
 
     O Spark SQL suporta as mesmas fontes que o conector MongoDB, S3, Parquet, etc.
-    Permite que analistas escrevam SQL familiar sem abrir mão do processamento distribuído.
+    Permite que analistas escrevam SQL familiar sem abrir mão do processamento
+    distribuído.
     """
     df.createOrReplaceTempView("contratacoes")
     return spark.sql("""
@@ -223,6 +242,7 @@ def top10_modalidades_sql(spark: SparkSession, df: DataFrame) -> DataFrame:
 # ---------------------------------------------------------------------------
 # 10. Exemplo — Schema final tabular (printSchema)
 # ---------------------------------------------------------------------------
+
 
 def mostrar_schema_tabular(df: DataFrame) -> None:
     """Imprime o schema do DataFrame após todas as transformações."""

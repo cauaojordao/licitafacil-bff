@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from src.bronze.raw_repository import RawRepository
 
@@ -6,7 +7,8 @@ from src.bronze.raw_repository import RawRepository
 class DeadlineAlertsPipeline:
     """
     Identifica licitações com prazo de encerramento de propostas próximo ao vencimento.
-    Consulta o MongoDB e exibe alertas para contratos que fecham dentro de `dias_alerta` dias.
+    Consulta o MongoDB e exibe alertas para contratos que fecham dentro de `dias_alerta`
+    dias.
     """
 
     def __init__(self, loader: RawRepository, dias_alerta: int = 7) -> None:
@@ -14,14 +16,13 @@ class DeadlineAlertsPipeline:
         self.dias_alerta = dias_alerta
 
     def run(self) -> dict:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         limit_date = now + timedelta(days=self.dias_alerta)
 
-        # ISO 8601 strings comparam lexicograficamente — safe para datas no formato YYYY-MM-DD...
         now_str = now.strftime("%Y-%m-%dT%H:%M:%S")
         limit_str = limit_date.strftime("%Y-%m-%dT%H:%M:%S")
 
-        pipeline_agg = [
+        pipeline_agg: list[dict[str, Any]] = [
             {
                 "$match": {
                     "data_encerramento_proposta": {

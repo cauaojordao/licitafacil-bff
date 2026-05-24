@@ -2,7 +2,9 @@
 Processador de editais da camada Silver.
 Enriquece os dados com classificação e resumos via IA.
 """
+
 from typing import Any
+
 from pyspark.sql import Row
 
 from src.silver.category_classifier import CategoryClassifier
@@ -55,12 +57,16 @@ class EditalProcessor:
             "modalidade_nome": row.modalidade_nome,
             "data_encerramento_proposta": row.data_encerramento_proposta,
             "orgao_entidade": {
-                "razao_social": row.orgao_entidade.razao_social if row.orgao_entidade else None,
+                "razao_social": row.orgao_entidade.razao_social
+                if row.orgao_entidade
+                else None,
                 "cnpj": row.orgao_entidade.cnpj if row.orgao_entidade else None,
             },
             "unidade_orgao": {
                 "uf_sigla": row.unidade_orgao.uf_sigla if row.unidade_orgao else None,
-                "municipio_nome": row.unidade_orgao.municipio_nome if row.unidade_orgao else None,
+                "municipio_nome": row.unidade_orgao.municipio_nome
+                if row.unidade_orgao
+                else None,
             },
             "categorias_cnae": classification.get("categorias", []),
             "justificativa_categorizacao": classification.get("justificativa", ""),

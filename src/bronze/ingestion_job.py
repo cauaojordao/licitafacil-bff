@@ -7,12 +7,13 @@ Orquestra o fluxo completo:
   3. Persiste no MongoDB (raw store)
   4. Publica no Kafka para consumo downstream
 """
+
 from typing import Any
 
-from src.bronze.pncp_client import PNCPClient
-from src.bronze.raw_repository import RawRepository
-from src.bronze.pncp_transformer import PNCPTransformer
 from src.bronze.kafka_publisher import BronzeKafkaPublisher
+from src.bronze.pncp_client import PNCPClient
+from src.bronze.pncp_transformer import PNCPTransformer
+from src.bronze.raw_repository import RawRepository
 
 
 class BronzeIngestionJob:
