@@ -36,5 +36,6 @@ class Settings:
 
         if missing:
             raise ValueError(
-                f"As seguintes variáveis de ambiente não foram definidas: {', '.join(missing)}"
+                f"""As seguintes variáveis de ambiente
+                não foram definidas: {', '.join(missing)}"""
             )

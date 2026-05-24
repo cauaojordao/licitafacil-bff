@@ -20,7 +20,8 @@ SEGMENTOS_MEI = [
 ]
 
 _PROMPT_TEMPLATE = """\
-Você é especialista em licitações públicas para Microempreendedores Individuais (MEIs) no Brasil.
+Você é especialista em licitações públicas para Microempreendedores Individuais (MEIs)
+no Brasil.
 
 Classifique o objeto da licitação abaixo em exatamente um dos segmentos listados.
 Responda SOMENTE com o nome exato do segmento, sem pontuação ou explicação adicional.

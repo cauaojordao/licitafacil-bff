@@ -6,7 +6,8 @@ from src.load.mongodb_loader import MongoDBLoader
 class DeadlineAlertsPipeline:
     """
     Identifica licitações com prazo de encerramento de propostas próximo ao vencimento.
-    Consulta o MongoDB e exibe alertas para contratos que fecham dentro de `dias_alerta` dias.
+    Consulta o MongoDB e exibe alertas para contratos que fecham dentro de `dias_alerta`
+    dias.
     """
 
     def __init__(self, loader: MongoDBLoader, dias_alerta: int = 7) -> None:

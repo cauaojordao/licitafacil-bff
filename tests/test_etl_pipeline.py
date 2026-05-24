@@ -13,7 +13,10 @@ from src.pipeline.etl_pipeline import ETLPipeline
 @pytest.fixture
 def extractor():
     mock = MagicMock()
-    mock.fetch_all.return_value = [{"id": 1, "title": "Licitação A"}, {"id": 2, "title": "Licitação B"}]
+    mock.fetch_all.return_value = [
+        {"id": 1, "title": "Licitação A"},
+        {"id": 2, "title": "Licitação B"}
+        ]
     return mock
 
 
@@ -44,7 +47,7 @@ def test_pipeline_run_sem_loader_retorna_contagens_corretas(extractor, transform
     assert "processed_records_count" not in result
 
 
-def test_pipeline_run_com_loader_retorna_contagem_processados(extractor, transformer, loader):
+def test_pipeline_loader_retorna_contagem_processados(extractor, transformer, loader):
     pipeline = ETLPipeline(extractor=extractor, transformer=transformer, loader=loader)
 
     result = pipeline.run(endpoint="/v1/contratacoes", params={"page": 1})
