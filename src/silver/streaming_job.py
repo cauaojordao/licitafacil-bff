@@ -163,9 +163,7 @@ class SilverStreamingJob:
                 table=self.iceberg_table,
                 mode="append",
             )
-            print(
-                f"🧊 Batch #{batch_id}: {len(enriched_docs)} registros salvos."
-            )
+            print(f"🧊 Batch #{batch_id}: {len(enriched_docs)} registros salvos.")
         except Exception as e:
             print(f"❌ Erro ao escrever no Iceberg: {e}")
 
