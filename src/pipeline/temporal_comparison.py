@@ -19,7 +19,11 @@ class TemporalComparisonPipeline:
             {"data_publicacao_pncp": {"$regex": f"^{data_prefix}"}},
             {"numero_controle_pncp": 1},
         )
-        return {doc["numero_controle_pncp"] for doc in docs if doc.get("numero_controle_pncp")}
+        return {
+            doc["numero_controle_pncp"]
+            for doc in docs
+            if doc.get("numero_controle_pncp")
+        }
 
     def run(self) -> dict:
         hoje = date.today()
@@ -59,7 +63,7 @@ class TemporalComparisonPipeline:
                 ).limit(10)
             )
             novas_oportunidades = docs
-            print(f"\n  Amostra de novas oportunidades (até 10):")
+            print("\n  Amostra de novas oportunidades (até 10):")
             for doc in docs:
                 uf = doc.get("unidade_orgao", {}).get("uf_sigla", "??")
                 objeto = (doc.get("objeto_compra") or "N/A")[:65]

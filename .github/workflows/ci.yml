@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ------------------------------------------------------------
+  # 1. Linting — ruff verifica estilo e erros de código
+  # ------------------------------------------------------------
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar ruff
+        run: pip install ruff
+
+      - name: Verificar erros de lint
+        run: ruff check .
+
+      - name: Verificar formatação
+        run: ruff format --check .
+
+  # ------------------------------------------------------------
+  # 2. Type-check — mypy verifica anotações de tipos
+  # ------------------------------------------------------------
+  typecheck:
+    name: Type Check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt mypy
+
+      - name: Verificar tipos
+        run: mypy src/
+
+  # ------------------------------------------------------------
+  # 3. Testes unitários — pytest com cobertura mínima de 60%
+  # ------------------------------------------------------------
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt pytest pytest-cov
+
+      - name: Executar testes
+        run: pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=60
+        env:
+          PNCP_BASE_URL: "https://pncp.gov.br/api/pncp"
+          MONGO_URI: "mongodb://localhost:27017"
+          MONGO_DATABASE: "test_db"
+          MONGO_COLLECTION: "test_collection"
+          GEMINI_API_KEY: "fake-key-for-tests"
+
+  # ------------------------------------------------------------
+  # 4. Docker build — valida que a imagem compila sem erros
+  # ------------------------------------------------------------
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build da imagem (sem push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: licitafacil-bff:ci-check
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ------------------------------------------------------------
+  # 5. Segurança — pip-audit escaneia CVEs nas dependências
+  # ------------------------------------------------------------
+  security:
+    name: Security Scan (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar pip-audit
+        run: pip install pip-audit
+
+      - name: Escanear dependências por vulnerabilidades conhecidas
+        run: pip-audit -r requirements.txt

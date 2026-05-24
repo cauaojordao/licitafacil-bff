@@ -1,8 +1,8 @@
 from src.config.settings import Settings
 from src.extract.pncp_extractor import PNCPExtractor
-from src.transform.pncp_transformer import PNCPTransformer
 from src.load.mongodb_loader import MongoDBLoader
 from src.pipeline.etl_pipeline import ETLPipeline
+from src.transform.pncp_transformer import PNCPTransformer
 
 
 def main() -> None:

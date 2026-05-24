@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from src.load.mongodb_loader import MongoDBLoader
 
@@ -14,10 +14,9 @@ class DeadlineAlertsPipeline:
         self.dias_alerta = dias_alerta
 
     def run(self) -> dict:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         limit_date = now + timedelta(days=self.dias_alerta)
 
-        # ISO 8601 strings comparam lexicograficamente — safe para datas no formato YYYY-MM-DD...
         now_str = now.strftime("%Y-%m-%dT%H:%M:%S")
         limit_str = limit_date.strftime("%Y-%m-%dT%H:%M:%S")
 

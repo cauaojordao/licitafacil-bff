@@ -42,7 +42,9 @@ class PNCPTransformer:
             amparo = item.get("amparoLegal", {}) or {}
 
             document = {
-                "numero_controle_pncp": self._clean_text(item.get("numeroControlePNCP")),
+                "numero_controle_pncp": self._clean_text(
+                    item.get("numeroControlePNCP")
+                ),
                 "ano_compra": item.get("anoCompra"),
                 "sequencial_compra": item.get("sequencialCompra"),
                 "numero_compra": self._clean_text(item.get("numeroCompra")),
@@ -55,9 +57,15 @@ class PNCPTransformer:
                 "modo_disputa_id": item.get("modoDisputaId"),
                 "modo_disputa_nome": self._clean_text(item.get("modoDisputaNome")),
                 "situacao_compra_id": item.get("situacaoCompraId"),
-                "situacao_compra_nome": self._clean_text(item.get("situacaoCompraNome")),
-                "tipo_instrumento_codigo": item.get("tipoInstrumentoConvocatorioCodigo"),
-                "tipo_instrumento_nome": self._clean_text(item.get("tipoInstrumentoConvocatorioNome")),
+                "situacao_compra_nome": self._clean_text(
+                    item.get("situacaoCompraNome")
+                ),
+                "tipo_instrumento_codigo": item.get(
+                    "tipoInstrumentoConvocatorioCodigo"
+                ),
+                "tipo_instrumento_nome": self._clean_text(
+                    item.get("tipoInstrumentoConvocatorioNome")
+                ),
                 "data_inclusao": item.get("dataInclusao"),
                 "data_publicacao_pncp": item.get("dataPublicacaoPncp"),
                 "data_atualizacao": item.get("dataAtualizacao"),
@@ -65,9 +73,15 @@ class PNCPTransformer:
                 "data_abertura_proposta": item.get("dataAberturaProposta"),
                 "data_encerramento_proposta": item.get("dataEncerramentoProposta"),
                 "link_sistema_origem": self._clean_text(item.get("linkSistemaOrigem")),
-                "link_processo_eletronico": self._clean_text(item.get("linkProcessoEletronico")),
-                "informacao_complementar": self._clean_text(item.get("informacaoComplementar")),
-                "justificativa_presencial": self._clean_text(item.get("justificativaPresencial")),
+                "link_processo_eletronico": self._clean_text(
+                    item.get("linkProcessoEletronico")
+                ),
+                "informacao_complementar": self._clean_text(
+                    item.get("informacaoComplementar")
+                ),
+                "justificativa_presencial": self._clean_text(
+                    item.get("justificativaPresencial")
+                ),
                 "usuario_nome": self._clean_text(item.get("usuarioNome")),
                 "srp": item.get("srp"),
                 "orgao_entidade": {

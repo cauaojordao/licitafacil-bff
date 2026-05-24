@@ -44,7 +44,7 @@ class MongoDBLoader:
             self.collection.update_one(
                 {"numero_controle_pncp": document["numero_controle_pncp"]},
                 {"$set": document},
-                upsert=True
+                upsert=True,
             )
             processed += 1
 

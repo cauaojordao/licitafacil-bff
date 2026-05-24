@@ -21,21 +21,21 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from prefect import flow, task, get_run_logger
+from prefect import flow, get_run_logger, task
 
 from src.config.settings import Settings
 from src.extract.pncp_extractor import PNCPExtractor
-from src.transform.pncp_transformer import PNCPTransformer
 from src.load.mongodb_loader import MongoDBLoader
-from src.pipeline.etl_pipeline import ETLPipeline
 from src.pipeline.deadline_alerts import DeadlineAlertsPipeline
-from src.pipeline.temporal_comparison import TemporalComparisonPipeline
+from src.pipeline.etl_pipeline import ETLPipeline
 from src.pipeline.mei_categorization import MEICategorizationPipeline
-
+from src.pipeline.temporal_comparison import TemporalComparisonPipeline
+from src.transform.pncp_transformer import PNCPTransformer
 
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
 
 def _build_loader() -> MongoDBLoader:
     return MongoDBLoader(
@@ -48,6 +48,7 @@ def _build_loader() -> MongoDBLoader:
 # ---------------------------------------------------------------------------
 # Tasks — cada @task é uma unidade rastreável no Prefect UI
 # ---------------------------------------------------------------------------
+
 
 @task(name="Validar Configurações", retries=0)
 def task_validate_settings() -> None:
@@ -84,7 +85,9 @@ def task_etl_contratacoes(data_inicial: str, data_final: str) -> dict:
 @task(name="Alertas de Prazo")
 def task_deadline_alerts(dias_alerta: int = 7) -> dict:
     logger = get_run_logger()
-    result = DeadlineAlertsPipeline(loader=_build_loader(), dias_alerta=dias_alerta).run()
+    result = DeadlineAlertsPipeline(
+        loader=_build_loader(), dias_alerta=dias_alerta
+    ).run()
     logger.info(f"Alertas encontrados: {result['total_alertas']}")
     return result
 
@@ -114,6 +117,7 @@ def task_mei_categorization(limit: int = 50) -> dict:
 # ---------------------------------------------------------------------------
 # Flow principal — orquestra todos os pipelines
 # ---------------------------------------------------------------------------
+
 
 @flow(name="PNCP MEI — Orquestrador Principal", log_prints=True)
 def pncp_orchestrator(
