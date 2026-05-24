@@ -9,12 +9,13 @@ onde os dados brutos são ingeridos e preparados para processamento downstream.
 Uso:
     python run_bronze_ingestion.py
 """
-from src.config.settings import Settings
-from src.bronze.pncp_client import PNCPClient
-from src.bronze.raw_repository import RawRepository
-from src.bronze.pncp_transformer import PNCPTransformer
+
 from src.bronze.ingestion_job import BronzeIngestionJob
 from src.bronze.kafka_publisher import BronzeKafkaPublisher
+from src.bronze.pncp_client import PNCPClient
+from src.bronze.pncp_transformer import PNCPTransformer
+from src.bronze.raw_repository import RawRepository
+from src.config.settings import Settings
 
 
 def main() -> None:

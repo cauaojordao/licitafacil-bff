@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from src.bronze.raw_repository import RawRepository
 
@@ -21,7 +22,7 @@ class DeadlineAlertsPipeline:
         now_str = now.strftime("%Y-%m-%dT%H:%M:%S")
         limit_str = limit_date.strftime("%Y-%m-%dT%H:%M:%S")
 
-        pipeline_agg = [
+        pipeline_agg: list[dict[str, Any]] = [
             {
                 "$match": {
                     "data_encerramento_proposta": {

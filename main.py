@@ -2,12 +2,13 @@
 Ponto de entrada legado (compatibilidade).
 Recomenda-se usar run_bronze_ingestion.py para execuções completas.
 """
-from src.config.settings import Settings
+
+from src.bronze.ingestion_job import BronzeIngestionJob
+from src.bronze.kafka_publisher import BronzeKafkaPublisher
 from src.bronze.pncp_client import PNCPClient
 from src.bronze.pncp_transformer import PNCPTransformer
 from src.bronze.raw_repository import RawRepository
-from src.bronze.kafka_publisher import BronzeKafkaPublisher
-from src.bronze.ingestion_job import BronzeIngestionJob
+from src.config.settings import Settings
 
 
 def main() -> None:

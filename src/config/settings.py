@@ -22,11 +22,17 @@ class Settings:
     KAFKA_BRONZE_TOPIC = os.getenv("KAFKA_BRONZE_TOPIC", "bronze.pncp.contratacoes")
 
     # Configurações da camada Silver
-    MONGO_SILVER_COLLECTION = os.getenv("MONGO_SILVER_COLLECTION", "editais_categorizados")
-    SPARK_CHECKPOINT_DIR = os.getenv("SPARK_CHECKPOINT_DIR", "/tmp/spark-checkpoint-silver")
+    MONGO_SILVER_COLLECTION = os.getenv(
+        "MONGO_SILVER_COLLECTION", "editais_categorizados"
+    )
+    SPARK_CHECKPOINT_DIR = os.getenv(
+        "SPARK_CHECKPOINT_DIR", "/tmp/spark-checkpoint-silver"
+    )
 
     # Configurações do Iceberg (Data Lake)
-    ICEBERG_WAREHOUSE_PATH = os.getenv("ICEBERG_WAREHOUSE_PATH", "/tmp/iceberg-warehouse")
+    ICEBERG_WAREHOUSE_PATH = os.getenv(
+        "ICEBERG_WAREHOUSE_PATH", "/tmp/iceberg-warehouse"
+    )
     ICEBERG_DATABASE = os.getenv("ICEBERG_DATABASE", "pncp_silver")
     ICEBERG_TABLE = os.getenv("ICEBERG_TABLE", "editais_enriched")
 
@@ -50,5 +56,5 @@ class Settings:
         if missing:
             raise ValueError(
                 f"""As seguintes variáveis de ambiente
-                não foram definidas: {', '.join(missing)}"""
+                não foram definidas: {", ".join(missing)}"""
             )

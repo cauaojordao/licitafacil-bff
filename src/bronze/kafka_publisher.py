@@ -1,23 +1,8 @@
-import json
-from typing import Any
-
-from kafka import KafkaProducer as _KafkaProducer
-
-
-class KafkaProducer:
-    """
-    Cliente Kafka genérico para publicação de mensagens.
-    """
-
-    def __init__(self, bootstrap_servers: str) -> None:
-        self._producer = _KafkaProducer(
-            bootstrap_servers=bootstrap_servers,
-            value_serializer=lambda v: json.dumps(v, ensure_ascii=False).encode("utf-8"),
-        )
 """
 Publisher Kafka da camada Bronze.
 Responsável por publicar registros brutos no tópico Kafka.
 """
+
 from typing import Any
 
 from src.messaging.kafka_producer import KafkaProducer
@@ -55,14 +40,6 @@ class BronzeKafkaPublisher:
         count = self._producer.publish_many(topic=self.topic, messages=records)
         self._producer.close()
         return count
-    def publish(self, topic: str, message: dict[str, Any]) -> None:
-        self._producer.send(topic, value=message)
-
-    def publish_many(self, topic: str, messages: list[dict[str, Any]]) -> int:
-        for message in messages:
-            self._producer.send(topic, value=message)
-        self._producer.flush()
-        return len(messages)
 
     def close(self) -> None:
         self._producer.close()

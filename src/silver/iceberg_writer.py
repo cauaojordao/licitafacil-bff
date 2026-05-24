@@ -2,7 +2,10 @@
 Writer Apache Iceberg para camada Silver.
 Persiste dados enriquecidos em formato otimizado para analytics.
 """
-from pyspark.sql import SparkSession, DataFrame
+
+from typing import Any
+
+from pyspark.sql import DataFrame, SparkSession
 
 
 class IcebergWriter:
@@ -35,9 +38,14 @@ class IcebergWriter:
         """
         Configura o catálogo Iceberg no Spark.
         """
-        self.spark.conf.set(f"spark.sql.catalog.{self.catalog_name}", "org.apache.iceberg.spark.SparkCatalog")
+        self.spark.conf.set(
+            f"spark.sql.catalog.{self.catalog_name}",
+            "org.apache.iceberg.spark.SparkCatalog",
+        )
         self.spark.conf.set(f"spark.sql.catalog.{self.catalog_name}.type", "hadoop")
-        self.spark.conf.set(f"spark.sql.catalog.{self.catalog_name}.warehouse", self.warehouse_path)
+        self.spark.conf.set(
+            f"spark.sql.catalog.{self.catalog_name}.warehouse", self.warehouse_path
+        )
 
     def create_table_if_not_exists(
         self,
@@ -66,7 +74,8 @@ class IcebergWriter:
             orgao_cnpj STRING,
             uf_sigla STRING,
             municipio_nome STRING,
-            categorias_cnae ARRAY<STRUCT<codigo: STRING, descricao: STRING, confianca: DOUBLE>>,
+            categorias_cnae ARRAY<STRUCT<codigo: STRING, descricao: STRING,
+            confianca: DOUBLE>>,
             justificativa_categorizacao STRING,
             resumo_simplificado STRING,
             processamento_status STRING,
@@ -95,12 +104,11 @@ class IcebergWriter:
         """
         table_path = f"{self.catalog_name}.{database}.{table}"
 
-        df.writeTo(table_path) \
-            .using("iceberg") \
-            .tableProperty("write.format.default", "parquet") \
-            .tableProperty("write.parquet.compression-codec", "snappy") \
-            .option("merge-schema", "true") \
-            .createOrReplace() if mode == "overwrite" else df.writeTo(table_path).append()
+        df.writeTo(table_path).using("iceberg").tableProperty(
+            "write.format.default", "parquet"
+        ).tableProperty("write.parquet.compression-codec", "snappy").option(
+            "merge-schema", "true"
+        ).createOrReplace() if mode == "overwrite" else df.writeTo(table_path).append()
 
     def write_stream(
         self,
@@ -108,7 +116,7 @@ class IcebergWriter:
         database: str,
         table: str,
         checkpoint_location: str,
-    ):
+    ) -> Any:
         """
         Escreve um stream no Iceberg.
 
@@ -123,12 +131,13 @@ class IcebergWriter:
         """
         table_path = f"{self.catalog_name}.{database}.{table}"
 
-        return df.writeStream \
-            .format("iceberg") \
-            .outputMode("append") \
-            .option("checkpointLocation", checkpoint_location) \
-            .option("path", table_path) \
+        return (
+            df.writeStream.format("iceberg")
+            .outputMode("append")
+            .option("checkpointLocation", checkpoint_location)
+            .option("path", table_path)
             .start()
+        )
 
     def compact_table(self, database: str, table: str) -> None:
         """
@@ -140,8 +149,11 @@ class IcebergWriter:
         """
         table_path = f"{self.catalog_name}.{database}.{table}"
 
-        # Reescreve arquivos pequenos em arquivos maiores
-        self.spark.sql(f"CALL {self.catalog_name}.system.rewrite_data_files(table => '{table_path}')")
+        self.spark.sql(
+            f"""
+            CALL {self.catalog_name}.system.rewrite_data_files(table => '{table_path}')
+            """
+        )
 
     def expire_snapshots(
         self,

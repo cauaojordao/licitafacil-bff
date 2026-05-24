@@ -2,14 +2,14 @@
 Job Spark Streaming da camada Silver.
 Consome do Kafka, processa com IA e persiste no MongoDB + Iceberg.
 """
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, current_timestamp, struct
-from pyspark.sql.types import StringType, ArrayType, StructType, StructField, DoubleType
 
-from src.silver.kafka_consumer import KafkaSparkConsumer
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.functions import col, current_timestamp
+
 from src.silver.edital_processor import EditalProcessor
-from src.silver.silver_repository import SilverRepository
 from src.silver.iceberg_writer import IcebergWriter
+from src.silver.kafka_consumer import KafkaSparkConsumer
+from src.silver.silver_repository import SilverRepository
 
 
 class SilverStreamingJob:
@@ -80,16 +80,22 @@ class SilverStreamingJob:
         Returns:
             Sessão Spark configurada.
         """
-        return SparkSession.builder \
-            .appName("PNCP-Silver-Streaming") \
-            .config("spark.jars.packages", 
-                    "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,"
-                    "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
-            .config("spark.sql.streaming.checkpointLocation", self.checkpoint_location) \
-            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
+        return (
+            SparkSession.builder.appName("PNCP-Silver-Streaming")
+            .config(
+                "spark.jars.packages",
+                "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,"
+                "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3",
+            )
+            .config("spark.sql.streaming.checkpointLocation", self.checkpoint_location)
+            .config(
+                "spark.sql.extensions",
+                "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+            )
             .getOrCreate()
+        )
 
-    def _process_batch(self, batch_df, batch_id: int) -> None:
+    def _process_batch(self, batch_df: DataFrame, batch_id: int) -> None:
         """
         Processa um micro-batch do stream.
 
@@ -124,7 +130,9 @@ class SilverStreamingJob:
             enriched_df = self.spark.createDataFrame(enriched_docs)
 
             # Adiciona timestamp de processamento
-            enriched_df = enriched_df.withColumn("processamento_timestamp", current_timestamp())
+            enriched_df = enriched_df.withColumn(
+                "processamento_timestamp", current_timestamp()
+            )
 
             # Flatten nested structures para Iceberg
             flattened_df = enriched_df.select(
@@ -155,7 +163,9 @@ class SilverStreamingJob:
                 table=self.iceberg_table,
                 mode="append",
             )
-            print(f"🧊 Batch #{batch_id}: {len(enriched_docs)} registros salvos no Iceberg.")
+            print(
+                f"🧊 Batch #{batch_id}: {len(enriched_docs)} registros salvos."
+            )
         except Exception as e:
             print(f"❌ Erro ao escrever no Iceberg: {e}")
 
@@ -181,10 +191,11 @@ class SilverStreamingJob:
         stream_df = self.consumer.read_stream()
 
         # Processa e escreve
-        query = stream_df.writeStream \
-            .foreachBatch(self._process_batch) \
-            .outputMode("append") \
+        query = (
+            stream_df.writeStream.foreachBatch(self._process_batch)
+            .outputMode("append")
             .start()
+        )
 
         print("✅ Streaming ativo. Aguardando mensagens...")
         query.awaitTermination()

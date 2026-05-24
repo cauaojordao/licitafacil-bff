@@ -2,7 +2,9 @@
 Job de manutenção do Iceberg.
 Executa compaction e limpeza de snapshots antigos.
 """
+
 from pyspark.sql import SparkSession
+
 from src.silver.iceberg_writer import IcebergWriter
 
 
@@ -30,11 +32,18 @@ class IcebergCompactionJob:
         self.table = table
 
         # Cria Spark session
-        self.spark = SparkSession.builder \
-            .appName("Iceberg-Compaction-Job") \
-            .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
-            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
+        self.spark = (
+            SparkSession.builder.appName("Iceberg-Compaction-Job")
+            .config(
+                "spark.jars.packages",
+                "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3",
+            )
+            .config(
+                "spark.sql.extensions",
+                "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+            )
             .getOrCreate()
+        )
 
         self.iceberg_writer = IcebergWriter(
             spark=self.spark,

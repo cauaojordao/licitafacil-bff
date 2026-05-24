@@ -2,6 +2,7 @@
 Repositório de dados brutos da camada Bronze.
 Responsável por persistir os dados brutos no MongoDB.
 """
+
 from pymongo import MongoClient
 
 
@@ -19,7 +20,7 @@ class RawRepository:
             database_name: Nome do banco de dados.
             collection_name: Nome da collection.
         """
-        self.client = MongoClient(uri)
+        self.client: MongoClient = MongoClient(uri)
         self.database = self.client[database_name]
         self.collection = self.database[collection_name]
 

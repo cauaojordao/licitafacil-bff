@@ -7,6 +7,7 @@ e persiste dados enriquecidos no MongoDB + Iceberg.
 Uso:
     python run_silver_streaming.py
 """
+
 from src.config.settings import Settings
 from src.silver.streaming_job import SilverStreamingJob
 
