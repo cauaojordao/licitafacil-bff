@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ──────────────────────────────────────────────────────────
   # Zookeeper (necessário para Kafka)
@@ -81,6 +79,22 @@ services:
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
     networks:
       - pncp-network
+
+  # ──────────────────────────────────────────────────────────
+  # LicitaFácil API
+  # ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: licitafacil-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./apps/api/.env
+    networks:
+      - pncp-network
+    restart: unless-stopped
 
 networks:
   pncp-network:
