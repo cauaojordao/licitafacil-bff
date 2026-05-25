@@ -35,7 +35,7 @@ class PasswordResetTokenRepository:
             .maybe_single()
             .execute()
         )
-        return result.data
+        return result.data if result else None
 
     def upsert(self, user_id: str, token: str, expires_at: str) -> None:
         """

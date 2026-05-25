@@ -18,7 +18,7 @@ class UserRepository:
             .maybe_single()
             .execute()
         )
-        return result.data
+        return result.data if result else None
 
     def find_by_id(self, user_id: str) -> dict | None:
         result = (
@@ -28,7 +28,7 @@ class UserRepository:
             .maybe_single()
             .execute()
         )
-        return result.data
+        return result.data if result else None
 
     def create(self, name: str, email: str, password_hash: str) -> dict:
         result = (
@@ -42,6 +42,8 @@ class UserRepository:
             )
             .execute()
         )
+        if not result or not result.data:
+            raise RuntimeError("Failed to create user")
         return result.data[0]
 
     def update_password(self, user_id: str, password_hash: str) -> None:

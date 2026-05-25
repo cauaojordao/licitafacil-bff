@@ -7,7 +7,7 @@ from supabase import Client, create_client
 from src.core.config import settings
 
 
-@lru_cache
+@lru_cache()
 def get_supabase() -> Client:
     """
     Retorna uma instância singleton do cliente Supabase.
