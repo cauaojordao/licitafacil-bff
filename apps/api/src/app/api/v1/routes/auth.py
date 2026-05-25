@@ -5,16 +5,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError
 from supabase import Client
 
-from api.core.config import settings
-from api.core.security import (
+from src.core.config import settings
+from src.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
     hash_password,
     verify_password,
 )
-from api.db.supabase import get_supabase
-from api.schemas.auth import (
+from src.db.supabase import get_supabase
+from src.app.schemas.auth import (
     ForgotPasswordRequest,
     LoginRequest,
     MessageResponse,
@@ -23,7 +23,7 @@ from api.schemas.auth import (
     ResetPasswordRequest,
     TokenResponse,
 )
-from api.services.email import send_reset_email
+from src.app.services.email import send_reset_email
 
 router = APIRouter()
 

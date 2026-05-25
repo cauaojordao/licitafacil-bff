@@ -1,7 +1,7 @@
 import aiosmtplib
 from email.message import EmailMessage
 
-from api.core.config import settings
+from src.core.config import settings
 
 
 async def send_reset_email(to_email: str, reset_token: str) -> None:
