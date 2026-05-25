@@ -1,7 +1,5 @@
 """Dependências do FastAPI para injeção em rotas."""
 
-from functools import lru_cache
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
@@ -19,63 +17,23 @@ from src.services.user_service import UserService
 bearer_scheme = HTTPBearer()
 
 
-# Dependências de Repositories
-
-
 def get_user_repository(db: Client = Depends(get_supabase)) -> UserRepository:
-    """
-    Fornece instância do UserRepository.
-
-    Args:
-        db: Cliente do banco de dados
-
-    Returns:
-        Instância configurada do UserRepository
-    """
     return UserRepository(db)
 
 
 def get_password_reset_repository(
     db: Client = Depends(get_supabase),
 ) -> PasswordResetTokenRepository:
-    """
-    Fornece instância do PasswordResetTokenRepository.
-
-    Args:
-        db: Cliente do banco de dados
-
-    Returns:
-        Instância configurada do PasswordResetTokenRepository
-    """
     return PasswordResetTokenRepository(db)
 
 
-# Dependências de Services
-
-
-@lru_cache
 def get_token_service() -> TokenService:
-    """
-    Fornece instância singleton do TokenService.
-
-    Returns:
-        Instância do TokenService
-    """
     return TokenService()
 
 
 def get_user_service(
     user_repository: UserRepository = Depends(get_user_repository),
 ) -> UserService:
-    """
-    Fornece instância do UserService.
-
-    Args:
-        user_repository: Repository de usuários
-
-    Returns:
-        Instância configurada do UserService
-    """
     return UserService(user_repository)
 
 
@@ -86,17 +44,6 @@ def get_auth_service(
         get_password_reset_repository
     ),
 ) -> AuthService:
-    """
-    Fornece instância do AuthService.
-
-    Args:
-        user_service: Service de usuários
-        token_service: Service de tokens
-        password_reset_repository: Repository de tokens de reset
-
-    Returns:
-        Instância configurada do AuthService
-    """
     return AuthService(user_service, token_service, password_reset_repository)
 
 

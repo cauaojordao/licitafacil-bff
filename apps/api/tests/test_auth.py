@@ -39,9 +39,7 @@ def test_health(client: TestClient) -> None:
 def test_register_success(client: TestClient, mock_db: MagicMock) -> None:
     # Simula: usuário não existe ainda
     mock_result = mock_db.table.return_value.select.return_value.eq
-    mock_result.return_value.maybe_single.return_value.execute.return_value.data = (
-        None
-    )
+    mock_result.return_value.maybe_single.return_value.execute.return_value.data = None
     # Simula: insert retorna o novo usuário com ID
     mock_db.table.return_value.insert.return_value.execute.return_value.data = [
         {"id": "user-123"}
@@ -77,9 +75,7 @@ def test_register_duplicate_email(client: TestClient, mock_db: MagicMock) -> Non
 def test_login_invalid_credentials(client: TestClient, mock_db: MagicMock) -> None:
     # Simula: usuário não encontrado
     mock_result = mock_db.table.return_value.select.return_value.eq
-    mock_result.return_value.maybe_single.return_value.execute.return_value.data = (
-        None
-    )
+    mock_result.return_value.maybe_single.return_value.execute.return_value.data = None
 
     response = client.post(
         "/api/v1/auth/login",

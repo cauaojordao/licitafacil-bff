@@ -5,6 +5,7 @@ from typing import TypedDict
 USERS_TABLE = "users"
 PASSWORD_RESET_TOKENS_TABLE = "password_reset_tokens"
 
+
 class UserModel(TypedDict, total=False):
     """
     Modelo representando a estrutura da tabela users.
@@ -41,4 +42,3 @@ class PasswordResetTokenModel(TypedDict, total=False):
     token: str
     expires_at: str
     created_at: str
-

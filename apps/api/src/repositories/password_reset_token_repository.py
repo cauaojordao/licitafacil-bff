@@ -46,11 +46,9 @@ class PasswordResetTokenRepository:
             token: Token de reset gerado
             expires_at: Data/hora de expiração no formato ISO
         """
-        self.db.table(self.table).upsert({
-            "user_id": user_id,
-            "token": token,
-            "expires_at": expires_at
-        }).execute()
+        self.db.table(self.table).upsert(
+            {"user_id": user_id, "token": token, "expires_at": expires_at}
+        ).execute()
 
     def delete_by_token(self, token: str) -> None:
         """
