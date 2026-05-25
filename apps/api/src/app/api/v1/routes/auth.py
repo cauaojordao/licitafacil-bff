@@ -1,19 +1,10 @@
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError
 from supabase import Client
 
-from src.core.config import settings
-from src.core.security import (
-    create_access_token,
-    create_refresh_token,
-    decode_token,
-    hash_password,
-    verify_password,
-)
-from src.db.supabase import get_supabase
 from src.app.schemas.auth import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -24,14 +15,29 @@ from src.app.schemas.auth import (
     TokenResponse,
 )
 from src.app.services.email import send_reset_email
+from src.core.config import settings
+from src.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
+from src.db.supabase import get_supabase
 
 router = APIRouter()
 
 RESET_TOKEN_EXPIRE_HOURS = settings.RESET_TOKEN_EXPIRE_HOURS
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(body: RegisterRequest, db: Client = Depends(get_supabase)) -> TokenResponse:
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def register(
+    body: RegisterRequest, db: Client = Depends(get_supabase)
+) -> TokenResponse:
     """Cria uma nova conta e retorna tokens de acesso."""
     existing = (
         db.table("users")
@@ -40,7 +46,7 @@ async def register(body: RegisterRequest, db: Client = Depends(get_supabase)) ->
         .maybe_single()
         .execute()
     )
-    if existing.data:
+    if existing and existing.data:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="E-mail já cadastrado",
@@ -64,7 +70,9 @@ async def register(body: RegisterRequest, db: Client = Depends(get_supabase)) ->
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: Client = Depends(get_supabase)) -> TokenResponse:
+async def login(
+    body: LoginRequest, db: Client = Depends(get_supabase)
+) -> TokenResponse:
     """Autentica o usuário e retorna tokens de acesso."""
     result = (
         db.table("users")
@@ -75,7 +83,9 @@ async def login(body: LoginRequest, db: Client = Depends(get_supabase)) -> Token
     )
 
     # Mensagem genérica para não revelar se o e-mail existe ou não
-    if not result.data or not verify_password(body.password, result.data["password_hash"]):
+    if not result.data or not verify_password(
+        body.password, result.data["password_hash"]
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="E-mail ou senha inválidos",
@@ -100,7 +110,7 @@ async def refresh(body: RefreshRequest) -> TokenResponse:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token inválido ou expirado",
-        )
+        ) from None
 
     return TokenResponse(
         access_token=create_access_token(user_id),
@@ -123,7 +133,10 @@ async def forgot_password(
 
     # Resposta sempre igual para evitar enumeração de e-mails
     generic_response = MessageResponse(
-        message="Se este e-mail estiver cadastrado, você receberá as instruções em breve."
+        message=(
+            "Se este e-mail estiver cadastrado, "
+            "você receberá as instruções em breve."
+        )
     )
 
     if not result.data:
@@ -131,7 +144,10 @@ async def forgot_password(
 
     user_id: str = result.data["id"]
     reset_token = secrets.token_urlsafe(32)
-    expires_at = (datetime.now(timezone.utc) + timedelta(hours=RESET_TOKEN_EXPIRE_HOURS)).isoformat()
+    expires_at = (
+        datetime.now(UTC)
+        + timedelta(hours=RESET_TOKEN_EXPIRE_HOURS)
+    ).isoformat()
 
     db.table("password_reset_tokens").upsert(
         {"user_id": user_id, "token": reset_token, "expires_at": expires_at}
@@ -163,7 +179,7 @@ async def reset_password(
         raise invalid_error
 
     expires_at = datetime.fromisoformat(result.data["expires_at"])
-    if datetime.now(timezone.utc) > expires_at:
+    if datetime.now(UTC) > expires_at:
         raise invalid_error
 
     user_id: str = result.data["user_id"]

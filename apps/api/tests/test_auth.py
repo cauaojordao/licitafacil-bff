@@ -8,15 +8,13 @@ O mock do Supabase é feito com unittest.mock para isolar a lógica
 da API do banco de dados durante os testes.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
+from api.db.supabase import get_supabase
+from api.main import app
 from fastapi.testclient import TestClient
 
-from api.main import app
-from api.db.supabase import get_supabase
-
-# ── Fixtures ───────────────────────────────────────────────────────────────────
 
 @pytest.fixture
 def mock_db() -> MagicMock:
@@ -32,8 +30,6 @@ def client(mock_db: MagicMock) -> TestClient:
     app.dependency_overrides.clear()
 
 
-# ── Testes ─────────────────────────────────────────────────────────────────────
-
 def test_health(client: TestClient) -> None:
     response = client.get("/health")
     assert response.status_code == 200
@@ -42,7 +38,10 @@ def test_health(client: TestClient) -> None:
 
 def test_register_success(client: TestClient, mock_db: MagicMock) -> None:
     # Simula: usuário não existe ainda
-    mock_db.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = None
+    mock_result = mock_db.table.return_value.select.return_value.eq
+    mock_result.return_value.maybe_single.return_value.execute.return_value.data = (
+        None
+    )
     # Simula: insert retorna o novo usuário com ID
     mock_db.table.return_value.insert.return_value.execute.return_value.data = [
         {"id": "user-123"}
@@ -62,7 +61,8 @@ def test_register_success(client: TestClient, mock_db: MagicMock) -> None:
 
 def test_register_duplicate_email(client: TestClient, mock_db: MagicMock) -> None:
     # Simula: e-mail já cadastrado
-    mock_db.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = {
+    mock_result = mock_db.table.return_value.select.return_value.eq
+    mock_result.return_value.maybe_single.return_value.execute.return_value.data = {
         "id": "user-existing"
     }
 
@@ -76,7 +76,10 @@ def test_register_duplicate_email(client: TestClient, mock_db: MagicMock) -> Non
 
 def test_login_invalid_credentials(client: TestClient, mock_db: MagicMock) -> None:
     # Simula: usuário não encontrado
-    mock_db.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = None
+    mock_result = mock_db.table.return_value.select.return_value.eq
+    mock_result.return_value.maybe_single.return_value.execute.return_value.data = (
+        None
+    )
 
     response = client.post(
         "/api/v1/auth/login",

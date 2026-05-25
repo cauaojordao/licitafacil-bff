@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from src.db.supabase import Client, create_client
+from supabase import Client, create_client
 
 from src.core.config import settings
 

@@ -6,6 +6,7 @@ from src.core.security import decode_token
 
 bearer_scheme = HTTPBearer()
 
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> str:
@@ -21,5 +22,5 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido ou expirado",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
     return user_id
