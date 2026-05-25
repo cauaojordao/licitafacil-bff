@@ -1,3 +1,5 @@
+"""Integração com serviço de e-mail via SMTP."""
+
 from email.message import EmailMessage
 
 import aiosmtplib
@@ -6,7 +8,16 @@ from src.core.config import settings
 
 
 async def send_reset_email(to_email: str, reset_token: str) -> None:
-    """Envia o e-mail com o link de redefinição de senha."""
+    """
+    Envia e-mail com link para redefinição de senha.
+
+    Args:
+        to_email: Endereço de e-mail do destinatário
+        reset_token: Token de reset gerado para o usuário
+
+    Raises:
+        SMTPException: Se houver erro no envio do e-mail
+    """
     reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
     message = EmailMessage()

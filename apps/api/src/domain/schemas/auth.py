@@ -1,7 +1,11 @@
+"""Schemas de autenticação e autorização."""
+
 from pydantic import BaseModel, EmailStr, field_validator
 
 
 class RegisterRequest(BaseModel):
+    """Schema para requisição de registro de novo usuário."""
+
     name: str
     email: EmailStr
     password: str
@@ -15,19 +19,27 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
+    """Schema para requisição de login."""
+
     email: EmailStr
     password: str
 
 
 class RefreshRequest(BaseModel):
+    """Schema para requisição de renovação de token."""
+
     refresh_token: str
 
 
 class ForgotPasswordRequest(BaseModel):
+    """Schema para requisição de esqueci minha senha."""
+
     email: EmailStr
 
 
 class ResetPasswordRequest(BaseModel):
+    """Schema para requisição de reset de senha."""
+
     token: str
     new_password: str
 
@@ -40,10 +52,14 @@ class ResetPasswordRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
+    """Schema de resposta com tokens de autenticação."""
+
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
 
 
 class MessageResponse(BaseModel):
+    """Schema de resposta genérica com mensagem."""
+
     message: str
