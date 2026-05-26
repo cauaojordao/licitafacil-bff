@@ -6,12 +6,14 @@ from jose import JWTError
 from supabase import Client
 
 from src.db.session import get_supabase
+from src.repositories.cnae_repository import CNAERepository
 from src.repositories.password_reset_token_repository import (
     PasswordResetTokenRepository,
 )
 from src.repositories.user_repository import UserRepository
 from src.services.auth_service import AuthService
 from src.services.token_service import TokenService
+from src.services.user_mei_service import UserMEIService
 from src.services.user_service import UserService
 
 bearer_scheme = HTTPBearer()
@@ -25,6 +27,10 @@ def get_password_reset_repository(
     db: Client = Depends(get_supabase),
 ) -> PasswordResetTokenRepository:
     return PasswordResetTokenRepository(db)
+
+
+def get_cnae_repository(db: Client = Depends(get_supabase)) -> CNAERepository:
+    return CNAERepository(db)
 
 
 def get_token_service() -> TokenService:
@@ -45,6 +51,13 @@ def get_auth_service(
     ),
 ) -> AuthService:
     return AuthService(user_service, token_service, password_reset_repository)
+
+
+def get_user_mei_service(
+    user_repository: UserRepository = Depends(get_user_repository),
+    cnae_repository: CNAERepository = Depends(get_cnae_repository),
+) -> UserMEIService:
+    return UserMEIService(user_repository, cnae_repository)
 
 
 # Dependência de autenticação

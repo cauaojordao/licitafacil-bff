@@ -1,21 +1,6 @@
 """Schemas de autenticação e autorização."""
 
-from pydantic import BaseModel, EmailStr, field_validator
-
-
-class RegisterRequest(BaseModel):
-    """Schema para requisição de registro de novo usuário."""
-
-    name: str
-    email: EmailStr
-    password: str
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("A senha deve ter pelo menos 8 caracteres")
-        return v
+from pydantic import BaseModel, EmailStr
 
 
 class LoginRequest(BaseModel):
@@ -29,26 +14,6 @@ class RefreshRequest(BaseModel):
     """Schema para requisição de renovação de token."""
 
     refresh_token: str
-
-
-class ForgotPasswordRequest(BaseModel):
-    """Schema para requisição de esqueci minha senha."""
-
-    email: EmailStr
-
-
-class ResetPasswordRequest(BaseModel):
-    """Schema para requisição de reset de senha."""
-
-    token: str
-    new_password: str
-
-    @field_validator("new_password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("A senha deve ter pelo menos 8 caracteres")
-        return v
 
 
 class TokenResponse(BaseModel):

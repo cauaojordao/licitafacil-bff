@@ -11,6 +11,8 @@ from src.core.config import settings
 
 correlation_id_ctx: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 user_id_ctx: ContextVar[str | None] = ContextVar("user_id", default=None)
+
+
 class StructuredFormatter(logging.Formatter):
     """Formatter que adiciona contexto estruturado aos logs."""
 

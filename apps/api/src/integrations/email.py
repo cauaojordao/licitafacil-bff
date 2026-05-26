@@ -7,28 +7,27 @@ import aiosmtplib
 from src.core.config import settings
 
 
-async def send_reset_email(to_email: str, reset_token: str) -> None:
+async def send_reset_code_email(to_email: str, code: str) -> None:
     """
-    Envia e-mail com link para redefinição de senha.
+    Envia e-mail com código de 4 dígitos para redefinição de senha.
 
     Args:
         to_email: Endereço de e-mail do destinatário
-        reset_token: Token de reset gerado para o usuário
+        code: Código de 4 dígitos gerado para o usuário
 
     Raises:
         SMTPException: Se houver erro no envio do e-mail
     """
-    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
-
     message = EmailMessage()
     message["From"] = settings.EMAIL_FROM
     message["To"] = to_email
-    message["Subject"] = "Redefinição de senha - LicitaFácil"
+    message["Subject"] = "Código de redefinição de senha - LicitaFácil"
     message.set_content(
         f"Olá!\n\n"
         f"Recebemos uma solicitação para redefinir a senha da sua conta.\n\n"
-        f"Clique no link abaixo para criar uma nova senha:\n{reset_url}\n\n"
-        f"Este link expira em 1 hora.\n\n"
+        f"Seu código de verificação é:\n\n"
+        f"    {code}\n\n"
+        f"Este código expira em {settings.RESET_CODE_EXPIRE_MINUTES} minutos.\n\n"
         f"Se você não solicitou isso, ignore este e-mail."
     )
 
