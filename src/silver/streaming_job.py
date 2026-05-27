@@ -76,22 +76,38 @@ class SilverStreamingJob:
     def _create_spark_session(self) -> SparkSession:
         """
         Cria a sessão Spark com configurações necessárias.
+        Adiciona flags Java para compatibilidade com Java 11+.
 
         Returns:
             Sessão Spark configurada.
         """
+        # Flags para compatibilidade com Java 11+
+        java_options = (
+            "--add-opens=java.base/java.lang=ALL-UNNAMED "
+            "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED "
+            "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED "
+            "--add-opens=java.base/java.io=ALL-UNNAMED "
+            "--add-opens=java.base/java.net=ALL-UNNAMED "
+            "--add-opens=java.base/java.nio=ALL-UNNAMED "
+            "--add-opens=java.base/java.util=ALL-UNNAMED "
+            "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED "
+            "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED "
+            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED "
+            "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED "
+            "--add-opens=java.base/sun.security.action=ALL-UNNAMED "
+            "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED "
+        )
+
         return (
             SparkSession.builder.appName("PNCP-Silver-Streaming")
             .config(
                 "spark.jars.packages",
-                "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,"
-                "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3",
+                "org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.1,"
+                "org.apache.iceberg:iceberg-spark-runtime-3.4_2.12:1.4.3",
             )
             .config("spark.sql.streaming.checkpointLocation", self.checkpoint_location)
-            .config(
-                "spark.sql.extensions",
-                "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
-            )
+            .config("spark.driver.extraJavaOptions", java_options)
+            .config("spark.executor.extraJavaOptions", java_options)
             .getOrCreate()
         )
 

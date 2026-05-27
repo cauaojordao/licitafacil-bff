@@ -5,10 +5,7 @@ Classificador de editais por categorias CNAE usando Gemini API.
 import json
 from typing import Any
 
-try:
-    import google.genai as genai  # Novo SDK
-except ImportError:
-    import google.generativeai as genai  # Fallback para versão antiga
+import google.generativeai as genai
 
 
 class CategoryClassifier:
