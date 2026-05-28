@@ -1,11 +1,15 @@
 """Integração com API OpenCNPJ para consulta de CNPJ."""
 
+from typing import TypeAlias
+
 import httpx
 
 from src.core.config import settings
 from src.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+CNAEData: TypeAlias = dict[str, dict[str, str] | list[dict[str, str]] | None]
 
 
 class OpenCNPJClient:
@@ -58,53 +62,36 @@ class OpenCNPJClient:
             )
             raise
 
-    async def get_cnpj_cnaes(self, cnpj: str) -> dict[str, dict | list | None]:
-        """
-        Busca CNAEs de um CNPJ (principal e secundários separados).
+    def parse_cnaes_from_data(self, data: dict) -> CNAEData:
+        """Extrai CNAEs de um payload de dados de CNPJ já carregado."""
+        primary_cnae = None
+        secondary_cnaes = []
 
-        Args:
-            cnpj: CNPJ alfanumérico com 14 caracteres
+        if data.get("mainActivity"):
+            main = data["mainActivity"]
+            primary_cnae = {"id": str(main["id"]), "title": main["text"]}
 
-        Returns:
-            Dict com 'primary' e 'secondary'
+        for activity in data.get("sideActivities") or []:
+            secondary_cnaes.append(
+                {"id": str(activity["id"]), "title": activity["text"]}
+            )
 
-        Raises:
-            httpx.HTTPError: Se houver erro na requisição
-            ValueError: Se CNPJ inválido
-        """
+        return {"primary": primary_cnae, "secondary": secondary_cnaes}
+
+    async def get_cnpj_cnaes(self, cnpj: str) -> CNAEData:
+        """Busca CNAEs de um CNPJ (principal e secundários separados)."""
         data = await self.get_cnpj_data(cnpj)
 
         if not data:
             return {"primary": None, "secondary": []}
 
-        primary_cnae = None
-        secondary_cnaes = []
-
-        # Atividade principal
-        if "mainActivity" in data and data["mainActivity"]:
-            main = data["mainActivity"]
-            primary_cnae = {
-                "id": str(main["id"]),
-                "title": main["text"],
-            }
-
-        # Atividades secundárias
-        if "sideActivities" in data and data["sideActivities"]:
-            for activity in data["sideActivities"]:
-                secondary_cnaes.append(
-                    {
-                        "id": str(activity["id"]),
-                        "title": activity["text"],
-                    }
-                )
-
-        total = (1 if primary_cnae else 0) + len(secondary_cnaes)
+        result = self.parse_cnaes_from_data(data)
+        total = (1 if result["primary"] else 0) + len(result["secondary"])  # type: ignore[arg-type]
         logger.info(
             "CNAEs consultados com sucesso",
             extra_fields={"cnpj": cnpj[:8] + "****", "total_cnaes": total},
         )
-
-        return {"primary": primary_cnae, "secondary": secondary_cnaes}
+        return result
 
     def format_cnpj(self, cnpj: str) -> str:
         """
@@ -122,16 +109,5 @@ class OpenCNPJClient:
         return f"{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:]}"
 
     def clean_cnpj(self, cnpj: str) -> str:
-        """
-        Remove formatação do CNPJ (pontos, barras e hífens).
-
-        Args:
-            cnpj: CNPJ formatado ou não
-
-        Returns:
-            CNPJ sem formatação (alfanumérico)
-        """
+        """Remove formatação do CNPJ (pontos, barras e hífens)."""
         return cnpj.replace(".", "").replace("/", "").replace("-", "").strip()
-
-
-opencnpj_client = OpenCNPJClient()

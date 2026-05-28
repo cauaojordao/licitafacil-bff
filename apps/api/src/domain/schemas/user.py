@@ -1,6 +1,6 @@
 """Schemas para CNAE e consultas de CNPJ."""
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class CNAEResponse(BaseModel):
@@ -72,3 +72,37 @@ class CheckEmailResponse(BaseModel):
     """Schema de resposta para verificação de email."""
 
     available: bool
+
+
+class CNAEDetailResponse(BaseModel):
+    """Schema de resposta com detalhes de CNAE."""
+
+    id: str
+    description: str
+
+
+class UserProfileResponse(BaseModel):
+    """Schema de resposta com perfil completo do usuário."""
+
+    name: str
+    company_name: str | None = None  # Nome da empresa (razão social)
+    cnpj: str | None = None
+    email: str
+    primary_cnae: CNAEDetailResponse | None = None
+    secondary_cnaes: list[CNAEDetailResponse] = Field(default_factory=list)
+
+
+class UpdateUserCNPJRequest(BaseModel):
+    """Schema para requisição de atualização de CNPJ."""
+
+    cnpj: str
+
+    @field_validator("cnpj")
+    @classmethod
+    def validate_cnpj(cls, v: str) -> str:
+        """Valida e formata o CNPJ."""
+        # Remove formatação (pontos, barras, hífens)
+        cnpj = v.replace(".", "").replace("/", "").replace("-", "").strip().upper()
+        if len(cnpj) != 14:
+            raise ValueError("CNPJ deve conter exatamente 14 caracteres")
+        return cnpj

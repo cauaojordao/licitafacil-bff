@@ -48,10 +48,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             response.headers["X-Correlation-ID"] = correlation_id
             return response
 
-        except Exception as e:
+        except Exception:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(
-                f"Erro ao processar requisição: {str(e)}",
+                "Erro ao processar requisição",
                 extra_fields={
                     "method": request.method,
                     "path": request.url.path,
