@@ -2,10 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY pyproject.toml .
-COPY src/ src/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install uv
 
-RUN pip install .
+COPY pyproject.toml .
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system .
+
+COPY src/ src/
 
 EXPOSE 8000
 

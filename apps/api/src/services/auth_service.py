@@ -153,15 +153,7 @@ class AuthService:
         }
 
     def resend_reset_code(self, email: str) -> tuple[MessageResponse, str | None]:
-        """
-        Reenvia código de reset de senha.
-
-        Args:
-            email: Email do usuário
-
-        Returns:
-            Tuple com mensagem genérica e novo código (ou None se email não existe)
-        """
+        """Reenvia código de reset de senha (mesmo fluxo de solicitação inicial)."""
         return self.request_password_reset(email)
 
     def reset_password(self, token: str, new_password: str) -> MessageResponse:

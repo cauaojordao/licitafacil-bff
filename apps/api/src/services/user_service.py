@@ -25,7 +25,7 @@ class UserService:
             )
 
         password_hash = hash_password(password)
-        return self.user_repository.create(name, email, password_hash)
+        return self.user_repository.create_user(name, email, password_hash)
 
     def authenticate_user(self, email: str, password: str) -> dict:
         user = self.user_repository.find_by_email(email)

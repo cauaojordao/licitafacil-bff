@@ -4,32 +4,18 @@ from datetime import UTC, datetime
 
 from supabase import Client
 
+from src.repositories.base_repository import BaseRepository
 
-class UserRepository:
+
+class UserRepository(BaseRepository):
     """Repository para operações de CRUD de usuários."""
 
     def __init__(self, db: Client):
-        """
-        Inicializa o repository com a conexão do banco.
-
-        Args:
-            db: Cliente Supabase para acesso ao banco de dados
-        """
-        self.db = db
-        self.table = "users"
+        super().__init__(db, "users")
 
     def find_by_email(self, email: str) -> dict | None:
-        """
-        Busca um usuário pelo e-mail.
-
-        Args:
-            email: E-mail do usuário
-
-        Returns:
-            Dados do usuário ou None se não encontrado
-        """
         result = (
-            self.db.table(self.table)
+            self.supabase.table(self.table_name)
             .select("*")
             .eq("email", email)
             .maybe_single()
@@ -38,17 +24,8 @@ class UserRepository:
         return result.data if result else None
 
     def find_by_cnpj(self, cnpj: str) -> dict | None:
-        """
-        Busca um usuário pelo CNPJ.
-
-        Args:
-            cnpj: CNPJ alfanumérico do usuário (14 caracteres)
-
-        Returns:
-            Dados do usuário ou None se não encontrado
-        """
         result = (
-            self.db.table(self.table)
+            self.supabase.table(self.table_name)
             .select("*")
             .eq("cnpj", cnpj)
             .maybe_single()
@@ -56,26 +33,9 @@ class UserRepository:
         )
         return result.data if result else None
 
-    def find_by_id(self, user_id: str) -> dict | None:
-        """
-        Busca um usuário pelo ID.
+    # find_by_id já está no BaseRepository, não precisa duplicar
 
-        Args:
-            user_id: ID do usuário
-
-        Returns:
-            Dados do usuário ou None se não encontrado
-        """
-        result = (
-            self.db.table(self.table)
-            .select("*")
-            .eq("id", user_id)
-            .maybe_single()
-            .execute()
-        )
-        return result.data if result else None
-
-    def create(self, name: str, email: str, password_hash: str) -> dict:
+    def create_user(self, name: str, email: str, password_hash: str) -> dict:
         """
         Cria um novo usuário (autenticação simples).
 
@@ -87,20 +47,13 @@ class UserRepository:
         Returns:
             Dados do usuário criado
         """
-        result = (
-            self.db.table(self.table)
-            .insert(
-                {
-                    "name": name,
-                    "email": email,
-                    "password_hash": password_hash,
-                }
-            )
-            .execute()
+        return self.create(
+            {
+                "name": name,
+                "email": email,
+                "password_hash": password_hash,
+            }
         )
-        if not result or not result.data:
-            raise RuntimeError("Failed to create user")
-        return result.data[0]
 
     def create_mei(
         self,
@@ -121,67 +74,37 @@ class UserRepository:
         Returns:
             Dados do usuário criado
         """
-        result = (
-            self.db.table(self.table)
-            .insert(
-                {
-                    "name": name,
-                    "email": email,
-                    "password_hash": password_hash,
-                    "cnpj": cnpj,
-                    "registration_complete": False,
-                }
-            )
-            .execute()
+        return self.create(
+            {
+                "name": name,
+                "email": email,
+                "password_hash": password_hash,
+                "cnpj": cnpj,
+                "registration_complete": False,
+            }
         )
-        if not result or not result.data:
-            raise RuntimeError("Failed to create MEI user")
-        return result.data[0]
 
     def link_interested_states(self, user_id: str, state_ids: list[str]) -> None:
-        """
-        Associa estados de interesse a um usuário.
-
-        Args:
-            user_id: ID do usuário
-            state_ids: Lista de IDs IBGE dos estados
-        """
         if not state_ids:
             return
 
-        # Remove associações antigas
-        self.db.table("user_interested_states").delete().eq(
+        self.supabase.table("user_interested_states").delete().eq(
             "user_id", user_id
         ).execute()
 
-        # Cria novas associações
         user_states = [
             {"user_id": user_id, "state_id": state_id} for state_id in state_ids
         ]
-
-        self.db.table("user_interested_states").insert(user_states).execute()
+        self.supabase.table("user_interested_states").insert(user_states).execute()
 
     def get_interested_states(self, user_id: str) -> list[str]:
-        """
-        Busca estados de interesse de um usuário.
-
-        Args:
-            user_id: ID do usuário
-
-        Returns:
-            Lista de IDs IBGE dos estados
-        """
         result = (
-            self.db.table("user_interested_states")
+            self.supabase.table("user_interested_states")
             .select("state_id")
             .eq("user_id", user_id)
             .execute()
         )
-
-        if not result.data:
-            return []
-
-        return [item["state_id"] for item in result.data]
+        return [item["state_id"] for item in result.data] if result.data else []
 
     def update_password(self, user_id: str, password_hash: str) -> None:
         """
@@ -191,9 +114,7 @@ class UserRepository:
             user_id: ID do usuário
             password_hash: Novo hash da senha
         """
-        self.db.table(self.table).update({"password_hash": password_hash}).eq(
-            "id", user_id
-        ).execute()
+        self.update(user_id, {"password_hash": password_hash})
 
     def mark_registration_complete(self, user_id: str) -> None:
         """
@@ -202,9 +123,18 @@ class UserRepository:
         Args:
             user_id: ID do usuário
         """
-        self.db.table(self.table).update(
+        self.update(
+            user_id,
             {
                 "registration_complete": True,
                 "onboarding_completed_at": datetime.now(UTC).isoformat(),
-            }
-        ).eq("id", user_id).execute()
+            },
+        )
+
+    def update_cnpj(
+        self, user_id: str, cnpj: str, company_name: str | None = None
+    ) -> dict:
+        data: dict = {"cnpj": cnpj}
+        if company_name is not None:
+            data["company_name"] = company_name
+        return self.update(user_id, data)

@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter, Depends, status
 
-from src.core.dependencies import get_auth_service
+from src.core.dependencies import get_auth_service, get_current_user
+from src.domain.entities.user import User
 from src.domain.schemas.auth import (
     LoginRequest,
     MessageResponse,
@@ -149,3 +150,30 @@ async def complete_password_reset(
         Mensagem de sucesso
     """
     return auth_service.reset_password(body.reset_token, body.new_password)
+
+
+@router.post(
+    "/logout",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Fazer logout",
+    description="Invalida a sessão atual do usuário.",
+)
+async def logout(
+    current_user: User = Depends(get_current_user),
+) -> MessageResponse:
+    """
+    Faz logout do usuário autenticado.
+
+    Note:
+        Como usamos JWT stateless, o logout é tratado no client-side
+        (removendo o token). Este endpoint apenas valida que o usuário
+        está autenticado e retorna sucesso.
+
+        Para uma implementação mais robusta com blacklist de tokens,
+        você pode adicionar o token atual a uma lista de tokens invalidados.
+
+    Returns:
+        Mensagem de sucesso
+    """
+    return MessageResponse(message="Logout realizado com sucesso")
