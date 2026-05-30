@@ -39,6 +39,16 @@ pip-delete-this-directory.txt
 
 # Unit test / coverage reports
 htmlcov/
+
+# Spark
+/tmp/spark-checkpoint-*
+/tmp/iceberg-warehouse
+
+# Prefect
+.prefect/
+
+# Legacy (migrado para monorepo)
+src/
 .tox/
 .nox/
 .coverage

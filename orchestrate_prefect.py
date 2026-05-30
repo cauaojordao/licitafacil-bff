@@ -1,9 +1,10 @@
+
 """
 Orquestrador Prefect — PNCP MEI Pipeline
 =========================================
 Executa o pipeline completo:
-  1. Bronze Layer  → Extração API PNCP → MongoDB + Kafka
-  2. Silver Layer  → Spark Streaming + Gemini AI → MongoDB + Iceberg
+  1. Consumer (Bronze)  → Extração API PNCP → MongoDB + Kafka
+  2. Spark (Silver)     → Streaming com IA  → Supabase + Iceberg
 
 Uso:
     # Execução única
@@ -15,24 +16,24 @@ Uso:
 
 from __future__ import annotations
 
+import sys
 import time
 from datetime import date, timedelta
 from threading import Thread
 
 from prefect import flow, get_run_logger, task
 
-from src.bronze.ingestion_job import BronzeIngestionJob
-from src.bronze.kafka_publisher import BronzeKafkaPublisher
-from src.bronze.pncp_client import PNCPClient
-from src.bronze.pncp_transformer import PNCPTransformer
-from src.bronze.raw_repository import RawRepository
-from src.config.settings import Settings
-from src.silver.streaming_job import SilverStreamingJob
+from consumer.ingestion_job import BronzeIngestionJob
+from consumer.kafka_publisher import BronzeKafkaPublisher
+from consumer.transformer import PNCPTransformer
+from consumer.repository import RawRepository
+from libs.clients.clients.pncp import PNCPClient
+from libs.common.common.config import Settings
+from spark_jobs.streaming_job import SilverStreamingJob
 
 # ───────────────────────────────────────────────────────────────────────────
 # Tasks
 # ───────────────────────────────────────────────────────────────────────────
-
 
 @task(name="Validar Configurações", retries=0)
 def task_validate_settings() -> None:
@@ -83,13 +84,12 @@ def task_silver_streaming(duration_seconds: int = 600) -> dict:
     logger = get_run_logger()
     logger.info(f"🔄 Iniciando Silver Streaming ({duration_seconds}s)...")
 
-    def run_streaming():
+    def run_streaming() -> None:
         job = SilverStreamingJob(
             kafka_bootstrap_servers=Settings.KAFKA_BOOTSTRAP_SERVERS,
             kafka_topic=Settings.KAFKA_BRONZE_TOPIC,
-            mongo_uri=Settings.MONGO_URI,
-            mongo_database=Settings.MONGO_DATABASE,
-            mongo_collection=Settings.MONGO_SILVER_COLLECTION,
+            supabase_url=Settings.SUPABASE_URL,
+            supabase_key=Settings.SUPABASE_KEY,
             gemini_api_key=Settings.GEMINI_API_KEY,
             iceberg_warehouse=Settings.ICEBERG_WAREHOUSE_PATH,
             iceberg_database=Settings.ICEBERG_DATABASE,
@@ -98,11 +98,8 @@ def task_silver_streaming(duration_seconds: int = 600) -> dict:
         )
         job.run()
 
-    # Rodar em thread daemon
     thread = Thread(target=run_streaming, daemon=True)
     thread.start()
-
-    # Aguardar duração
     time.sleep(duration_seconds)
 
     logger.info(f"✅ Silver Streaming finalizado ({duration_seconds}s)")
@@ -133,20 +130,15 @@ def pncp_pipeline(
     Returns:
         Resultados de cada camada.
     """
-    # Definir datas
     hoje = date.today()
     if data_inicial is None:
         data_inicial = (hoje - timedelta(days=1)).strftime("%Y%m%d")
     if data_final is None:
         data_final = hoje.strftime("%Y%m%d")
 
-    # Validar
     task_validate_settings()
-
-    # Bronze
     bronze_result = task_bronze_ingestion(data_inicial, data_final)
 
-    # Silver (opcional)
     silver_result = None
     if run_silver:
         silver_result = task_silver_streaming(silver_duration_seconds)
@@ -163,10 +155,8 @@ def pncp_pipeline(
 # ───────────────────────────────────────────────────────────────────────────
 
 
-def create_deployments():
+def create_deployments() -> None:
     """Cria deployments com agendamento."""
-
-    # Deployment diário completo
     pncp_pipeline.serve(
         name="pncp-pipeline-diario",
         cron="0 7 * * *",
@@ -180,8 +170,6 @@ def create_deployments():
 
 
 if __name__ == "__main__":
-    import sys
-
     if len(sys.argv) > 1 and sys.argv[1] == "serve":
         print("🚀 Iniciando Prefect Server com deployment...")
         create_deployments()

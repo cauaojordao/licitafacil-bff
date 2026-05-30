@@ -1,0 +1,33 @@
+[project]
+name = "licitafacil-spark"
+version = "1.0.0"
+description = "Silver layer - Spark streaming jobs"
+requires-python = ">=3.11"
+
+dependencies = [
+    "licitafacil-common",
+    "licitafacil-clients",
+    "pyspark==3.4.1",
+    "kafka-python>=2.0.2",
+    "supabase>=2.0.0",
+    "google-generativeai>=0.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["spark_jobs*"]
+
+[project.scripts]
+spark-streaming = "spark_jobs.main:main"
