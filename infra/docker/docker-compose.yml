@@ -40,49 +40,6 @@ services:
     networks:
       - licitafacil
 
-  # Consumer (Bronze)
-  consumer:
-    build:
-      context: ../../
-      dockerfile: apps/consumer/Dockerfile
-    container_name: licitafacil-consumer
-    depends_on:
-      - mongodb
-      - kafka
-    env_file:
-      - ../../.env
-    networks:
-      - licitafacil
-    restart: unless-stopped
-
-  # Spark Streaming (Silver)
-  spark:
-    build:
-      context: ../../
-      dockerfile: apps/spark/Dockerfile
-    container_name: licitafacil-spark
-    depends_on:
-      - kafka
-    env_file:
-      - ../../.env
-    networks:
-      - licitafacil
-    restart: unless-stopped
-
-  # Cronjobs (Maintenance)
-  cronjob:
-    build:
-      context: ../../
-      dockerfile: apps/cronjob/Dockerfile
-    container_name: licitafacil-cronjob
-    env_file:
-      - ../../.env
-    networks:
-      - licitafacil
-    restart: unless-stopped
-    volumes:
-      - iceberg_data:/tmp/iceberg-warehouse
-
 volumes:
   mongodb_data:
   iceberg_data:

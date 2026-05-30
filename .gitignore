@@ -3,6 +3,8 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+## AI Assistant
+`*.egg-info/`
 
 # C extensions
 *.so

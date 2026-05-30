@@ -13,12 +13,12 @@ RUN apt-get update && apt-get install -y \
 # Copy libs
 COPY libs/ /app/libs/
 
-# Copy cronjob app
+# Copy maintenance app
 COPY apps/cronjob/ /app/apps/cronjob/
 
 # Install dependencies
 RUN pip install --no-cache-dir -e /app/libs/common
-RUN pip install --no-cache-dir -e /app/apps/cronjob
+RUN pip install --no-cache-dir -e /app/apps/maintenance
 
 # Set environment
 ENV PYTHONUNBUFFERED=1

@@ -33,7 +33,7 @@ class Settings:
 
     # Spark
     SPARK_CHECKPOINT_DIR = os.getenv(
-        "SPARK_CHECKPOINT_DIR", "/tmp/spark-checkpoint-silver"
+        "SPARK_CHECKPOINT_DIR", "/tmp/processor-checkpoint-silver"
     )
 
     # Iceberg

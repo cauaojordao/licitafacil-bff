@@ -1,5 +1,5 @@
 [project]
-name = "licitafacil-spark"
+name = "licitafacil-processor"
 version = "1.0.0"
 description = "Silver layer - Spark streaming jobs"
 requires-python = ">=3.11"
@@ -27,7 +27,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["spark_jobs*"]
 
 [project.scripts]
-spark-streaming = "spark_jobs.main:main"
+processor = "main:main"

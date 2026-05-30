@@ -23,13 +23,13 @@ from threading import Thread
 
 from prefect import flow, get_run_logger, task
 
-from consumer.ingestion_job import BronzeIngestionJob
-from consumer.kafka_publisher import BronzeKafkaPublisher
-from consumer.transformer import PNCPTransformer
-from consumer.repository import RawRepository
+from apps.ingestion.src.repositories.bronze_repository import BronzeRepository
+from apps.ingestion.src.services.ingestion_service import IngestionService
+from apps.ingestion.src.services.kafka_service import KafkaService
+from apps.ingestion.src.services.transformation_service import TransformationService
 from libs.clients.clients.pncp import PNCPClient
-from libs.common.common.config import Settings
-from spark_jobs.streaming_job import SilverStreamingJob
+from libs.common.config import Settings
+from apps.processor.src.services.streaming_service import StreamingService
 
 # ───────────────────────────────────────────────────────────────────────────
 # Tasks
@@ -46,21 +46,31 @@ def task_bronze_ingestion(data_inicial: str, data_final: str) -> dict:
     logger = get_run_logger()
     logger.info(f"📥 Extraindo contratações: {data_inicial} → {data_final}")
 
-    job = BronzeIngestionJob(
-        pncp_client=PNCPClient(base_url=Settings.PNCP_BASE_URL),
-        transformer=PNCPTransformer(),
-        raw_repository=RawRepository(
-            uri=Settings.MONGO_URI,
-            database_name=Settings.MONGO_DATABASE,
-            collection_name=Settings.MONGO_COLLECTION,
-        ),
-        kafka_publisher=BronzeKafkaPublisher(
-            bootstrap_servers=Settings.KAFKA_BOOTSTRAP_SERVERS,
-            topic=Settings.KAFKA_BRONZE_TOPIC,
-        ),
+    # Inicialização dos serviços
+    pncp_client = PNCPClient(base_url=Settings.PNCP_BASE_URL)
+    transformation_service = TransformationService()
+
+    bronze_repository = BronzeRepository(
+        uri=Settings.MONGO_URI,
+        database_name=Settings.MONGO_DATABASE,
+        collection_name=Settings.MONGO_COLLECTION,
     )
 
-    result = job.run(
+    kafka_service = KafkaService(
+        bootstrap_servers=Settings.KAFKA_BOOTSTRAP_SERVERS,
+        topic=Settings.KAFKA_BRONZE_TOPIC,
+    )
+
+    # Serviço principal de ingestão
+    ingestion_service = IngestionService(
+        pncp_client=pncp_client,
+        transformation_service=transformation_service,
+        bronze_repository=bronze_repository,
+        kafka_service=kafka_service,
+    )
+
+    # Execução
+    result = ingestion_service.run_ingestion(
         endpoint="/v1/contratacoes/publicacao",
         params={
             "dataInicial": data_inicial,
@@ -75,6 +85,11 @@ def task_bronze_ingestion(data_inicial: str, data_final: str) -> dict:
         f"MongoDB: {result['mongo_upserted_count']}, "
         f"Kafka: {result['kafka_published_count']}"
     )
+
+    # Limpeza
+    bronze_repository.close()
+    kafka_service.close()
+
     return result
 
 
@@ -85,7 +100,7 @@ def task_silver_streaming(duration_seconds: int = 600) -> dict:
     logger.info(f"🔄 Iniciando Silver Streaming ({duration_seconds}s)...")
 
     def run_streaming() -> None:
-        job = SilverStreamingJob(
+        streaming_service = StreamingService(
             kafka_bootstrap_servers=Settings.KAFKA_BOOTSTRAP_SERVERS,
             kafka_topic=Settings.KAFKA_BRONZE_TOPIC,
             supabase_url=Settings.SUPABASE_URL,
@@ -96,7 +111,12 @@ def task_silver_streaming(duration_seconds: int = 600) -> dict:
             iceberg_table=Settings.ICEBERG_TABLE,
             checkpoint_location=Settings.SPARK_CHECKPOINT_DIR,
         )
-        job.run()
+        try:
+            streaming_service.run_streaming()
+        except KeyboardInterrupt:
+            logger.info("🛑 Streaming interrompido")
+        finally:
+            streaming_service.close()
 
     thread = Thread(target=run_streaming, daemon=True)
     thread.start()
@@ -137,11 +157,19 @@ def pncp_pipeline(
         data_final = hoje.strftime("%Y%m%d")
 
     task_validate_settings()
+
+    silver_future = None
+
+    if run_silver:
+        silver_future = task_silver_streaming.submit(silver_duration_seconds)
+        time.sleep(15)
+
     bronze_result = task_bronze_ingestion(data_inicial, data_final)
 
+
     silver_result = None
-    if run_silver:
-        silver_result = task_silver_streaming(silver_duration_seconds)
+    if silver_future:
+        silver_result = silver_future.result()
 
     return {
         "periodo": f"{data_inicial} → {data_final}",

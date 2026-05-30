@@ -1,28 +1,25 @@
-FROM openjdk:11-jdk-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install Python 3.11
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    python3.11 \
-    python3-pip \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy libs
 COPY libs/ /app/libs/
 
-# Copy spark app
-COPY apps/spark/ /app/apps/spark/
+# Copy ingestion app
+COPY apps/consumer/ /app/apps/consumer/
 
 # Install dependencies
 RUN pip install --no-cache-dir -e /app/libs/common
 RUN pip install --no-cache-dir -e /app/libs/clients
-RUN pip install --no-cache-dir -e /app/apps/spark
+RUN pip install --no-cache-dir -e /app/apps/ingestion
 
 # Set environment
 ENV PYTHONUNBUFFERED=1
-ENV JAVA_HOME=/usr/local/openjdk-11
 
-# Run spark job
-CMD ["spark-streaming"]
+# Run ingestion
+CMD ["consumer"]
