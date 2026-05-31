@@ -1,25 +1,19 @@
 """
 Transformações PySpark — PNCP Data Pipeline
 
-Disciplina: Engenharia de Dados e Big Data 2026.1 — Aula 07 (Apache Spark)
-
-Demonstra a etapa de transformação do projeto LicitaFácil:
   Bronze (MongoDB, dados brutos PNCP)   → DataFrame Spark tabular
   Silver (MongoDB, dados + Gemini CNAE) → análises por segmento MEI
 
-Pré-requisitos: Java 11, PySpark 3.5, MongoDB Spark Connector 10.3
-  pip install pyspark
-  # ou no Colab: !pip install pyspark
 """
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import DoubleType
 
-_MONGO_CONNECTOR = "org.mongodb.spark:mongo-spark-connector_2.12:10.3.0"
+_MONGO_CONNECTOR = "org.mongodb.spark:mongo-spark-connector_2.13:10.3.0"
 
 
-# ─── 1. Sessão Spark ─────────────────────────────────────────────────────────
+
 
 
 def criar_sessao_spark(
@@ -36,7 +30,6 @@ def criar_sessao_spark(
     return builder.getOrCreate()
 
 
-# ─── 2. Leitura — Camada Bronze (dados brutos PNCP) ──────────────────────────
 
 
 def carregar_bronze(
@@ -65,7 +58,6 @@ def carregar_bronze(
     )
 
 
-# ─── 3. Normalização de tipos ─────────────────────────────────────────────────
 
 
 def normalizar_tipos(df: DataFrame) -> DataFrame:
@@ -109,8 +101,6 @@ def normalizar_tipos(df: DataFrame) -> DataFrame:
     )
 
 
-# ─── 4. Flatten de campos aninhados → formato tabular ────────────────────────
-
 
 def flatten_campos_aninhados(df: DataFrame) -> DataFrame:
     """
@@ -135,8 +125,6 @@ def flatten_campos_aninhados(df: DataFrame) -> DataFrame:
     )
 
 
-# ─── 5. Agregação por modalidade ──────────────────────────────────────────────
-
 
 def agregar_por_modalidade(df: DataFrame) -> DataFrame:
     """
@@ -156,8 +144,6 @@ def agregar_por_modalidade(df: DataFrame) -> DataFrame:
     )
 
 
-# ─── 6. Ranking de oportunidades por estado ───────────────────────────────────
-
 
 def agregar_por_estado(df: DataFrame) -> DataFrame:
     """
@@ -175,8 +161,6 @@ def agregar_por_estado(df: DataFrame) -> DataFrame:
         .orderBy(F.col("total_licitacoes").desc())
     )
 
-
-# ─── 7. Filtro de licitações com prazo aberto ─────────────────────────────────
 
 
 def filtrar_licitacoes_abertas(df: DataFrame) -> DataFrame:
@@ -202,7 +186,6 @@ def filtrar_licitacoes_abertas(df: DataFrame) -> DataFrame:
     )
 
 
-# ─── 8. Spark SQL ─────────────────────────────────────────────────────────────
 
 
 def top10_modalidades_sql(spark: SparkSession, df: DataFrame) -> DataFrame:
@@ -229,7 +212,6 @@ def top10_modalidades_sql(spark: SparkSession, df: DataFrame) -> DataFrame:
     """)
 
 
-# ─── 9. Leitura — Camada Silver (dados enriquecidos pelo Gemini) ──────────────
 
 
 def carregar_silver(
@@ -256,9 +238,6 @@ def carregar_silver(
     )
 
 
-# ─── 10. Silver — Análise por categoria CNAE MEI ─────────────────────────────
-
-
 def agregar_por_cnae(df: DataFrame) -> DataFrame:
     """
     Explode o array categorias_cnae e conta licitações por código CNAE MEI.
@@ -283,7 +262,6 @@ def agregar_por_cnae(df: DataFrame) -> DataFrame:
     )
 
 
-# ─── Utilitário — Schema e preview ────────────────────────────────────────────
 
 
 def mostrar_schema_tabular(df: DataFrame, label: str = "") -> None:
@@ -294,8 +272,6 @@ def mostrar_schema_tabular(df: DataFrame, label: str = "") -> None:
     print(f"Total de registros: {df.count()}")
     df.show(5, truncate=60)
 
-
-# ─── main — Pipeline de demonstração completo ────────────────────────────────
 
 
 def main() -> None:
@@ -327,21 +303,26 @@ def main() -> None:
     )
     mostrar_schema_tabular(bronze_raw, "Bronze (raw — JSON semi-estruturado)")
 
-    bronze_norm = normalizar_tipos(bronze_raw)
-    bronze_flat = flatten_campos_aninhados(bronze_norm)
-    mostrar_schema_tabular(bronze_flat, "Bronze (normalizado + tabular)")
+    if bronze_raw.count() == 0:
+        print("\n⚠️  Collection Bronze está vazia.")
+        print("   Execute a ingestão primeiro: python -m src.bronze.run_bronze_ingestion")
+        print("   (ou rode: python main.py)\n")
+    else:
+        bronze_norm = normalizar_tipos(bronze_raw)
+        bronze_flat = flatten_campos_aninhados(bronze_norm)
+        mostrar_schema_tabular(bronze_flat, "Bronze (normalizado + tabular)")
 
-    print("\n--- Agregação por Modalidade ---")
-    agregar_por_modalidade(bronze_flat).show(truncate=40)
+        print("\n--- Agregação por Modalidade ---")
+        agregar_por_modalidade(bronze_flat).show(truncate=40)
 
-    print("\n--- Ranking por Estado ---")
-    agregar_por_estado(bronze_flat).show()
+        print("\n--- Ranking por Estado ---")
+        agregar_por_estado(bronze_flat).show()
 
-    print("\n--- Licitações com Prazo Aberto ---")
-    filtrar_licitacoes_abertas(bronze_flat).show(10, truncate=50)
+        print("\n--- Licitações com Prazo Aberto ---")
+        filtrar_licitacoes_abertas(bronze_flat).show(10, truncate=50)
 
-    print("\n--- Top 10 Modalidades (Spark SQL) ---")
-    top10_modalidades_sql(spark, bronze_flat).show()
+        print("\n--- Top 10 Modalidades (Spark SQL) ---")
+        top10_modalidades_sql(spark, bronze_flat).show()
 
     # ── Silver ──────────────────────────────────────────────────────────────
     print("\n====== CAMADA SILVER — Dados Enriquecidos pelo Gemini ======")
@@ -354,8 +335,12 @@ def main() -> None:
     )
     mostrar_schema_tabular(silver_df, "Silver (com categorias CNAE)")
 
-    print("\n--- Oportunidades por Categoria CNAE MEI ---")
-    agregar_por_cnae(silver_df).show(truncate=50)
+    if silver_df.count() == 0:
+        print("\n⚠️  Collection Silver está vazia.")
+        print("   Execute o streaming Silver antes de analisar por CNAE.\n")
+    else:
+        print("\n--- Oportunidades por Categoria CNAE MEI ---")
+        agregar_por_cnae(silver_df).show(truncate=50)
 
     spark.stop()
 

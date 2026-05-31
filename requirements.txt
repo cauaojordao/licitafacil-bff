@@ -7,3 +7,5 @@ kafka-python>=2.0.2
 pyspark>=3.5.0
 pytest==9.0.3
 pytest-cov==7.1.0
+fastmcp>=2.0
+streamlit>=1.35
