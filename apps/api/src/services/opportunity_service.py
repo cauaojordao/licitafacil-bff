@@ -35,10 +35,27 @@ _UNAUTHENTICATED_COMPATIBILITY = OpportunityCompatibility(
 
 
 class OpportunityService:
-    """Service para gerenciar oportunidades com lógica de compatibilidade."""
+    """Service para gerenciar oportunidades com lógica de compatibilidade.
+    
+    OTIMIZAÇÃO: Cache do perfil do usuário por instância do service para evitar
+    múltiplas queries ao banco durante a mesma requisição.
+    """
 
     def __init__(self, opportunity_repo: OpportunityRepository):
         self.opportunity_repo = opportunity_repo
+        self._user_profile_cache: dict[str, dict] = {}
+
+    async def _get_user_profile_cached(self, user_id: str | None) -> dict | None:
+        """Busca perfil do usuário com cache para otimizar requisições."""
+        if not user_id:
+            return None
+        
+        if user_id not in self._user_profile_cache:
+            self._user_profile_cache[user_id] = (
+                await self.opportunity_repo.get_user_profile(user_id)
+            )
+        
+        return self._user_profile_cache[user_id]
 
     async def get_recommended(
         self, user_id: str, page: int = 1, page_size: int = 20
@@ -49,10 +66,10 @@ class OpportunityService:
             user_id, page, page_size
         )
 
-        user_profile = await self.opportunity_repo.get_user_profile(user_id)
+        user_profile = await self._get_user_profile_cached(user_id)
 
         for opp in opportunities:
-            self._calculate_compatibility(opp, user_profile)
+            self._apply_compatibility(opp, user_profile)
             self._calculate_days_remaining(opp)
 
         opportunities.sort(
@@ -90,9 +107,7 @@ class OpportunityService:
             user_id=user_id,
         )
 
-        user_profile = (
-            await self.opportunity_repo.get_user_profile(user_id) if user_id else None
-        )
+        user_profile = await self._get_user_profile_cached(user_id)
 
         for opp in opportunities:
             self._apply_compatibility(opp, user_profile)
@@ -124,9 +139,7 @@ class OpportunityService:
             )
             return None
 
-        user_profile = (
-            await self.opportunity_repo.get_user_profile(user_id) if user_id else None
-        )
+        user_profile = await self._get_user_profile_cached(user_id)
 
         self._apply_compatibility(opportunity, user_profile)
         self._calculate_days_remaining(opportunity)
@@ -147,10 +160,10 @@ class OpportunityService:
             user_id, page, page_size
         )
 
-        user_profile = await self.opportunity_repo.get_user_profile(user_id)
+        user_profile = await self._get_user_profile_cached(user_id)
 
         for opp in opportunities:
-            self._calculate_compatibility(opp, user_profile)
+            self._apply_compatibility(opp, user_profile)
             self._calculate_days_remaining(opp)
 
         logger.info(
@@ -184,10 +197,10 @@ class OpportunityService:
             user_id, page, page_size
         )
 
-        user_profile = await self.opportunity_repo.get_user_profile(user_id)
+        user_profile = await self._get_user_profile_cached(user_id)
 
         for opp in opportunities:
-            self._calculate_compatibility(opp, user_profile)
+            self._apply_compatibility(opp, user_profile)
             self._calculate_days_remaining(opp)
 
         logger.info(
@@ -208,9 +221,7 @@ class OpportunityService:
             page, page_size, user_id
         )
 
-        user_profile = (
-            await self.opportunity_repo.get_user_profile(user_id) if user_id else None
-        )
+        user_profile = await self._get_user_profile_cached(user_id)
 
         for opp in opportunities:
             self._apply_compatibility(opp, user_profile)
@@ -234,9 +245,7 @@ class OpportunityService:
             page, page_size, user_id
         )
 
-        user_profile = (
-            await self.opportunity_repo.get_user_profile(user_id) if user_id else None
-        )
+        user_profile = await self._get_user_profile_cached(user_id)
 
         for opp in opportunities:
             self._apply_compatibility(opp, user_profile)

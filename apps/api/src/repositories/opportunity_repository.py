@@ -399,12 +399,27 @@ class OpportunityRepository:
         """Retorna perfil resumido do usuário para cálculo de compatibilidade.
 
         Retorna {"categories": set[str], "states": set[str]}.
+        
+        OTIMIZAÇÃO: Faz as 2 queries principais em paralelo para reduzir latência.
         """
-        user_cnaes_response = await self._execute(
+        # Buscar CNAEs e estados em paralelo
+        user_cnaes_task = self._execute(
             self.supabase.table("user_cnaes").select("cnae_id").eq("user_id", user_id)
         )
+        user_states_task = self._execute(
+            self.supabase.table("user_interested_states")
+            .select("state_id")
+            .eq("user_id", user_id)
+        )
+        
+        user_cnaes_response, user_states_response = await asyncio.gather(
+            user_cnaes_task, user_states_task
+        )
+        
         user_cnae_ids = [row["cnae_id"] for row in user_cnaes_response.data]
+        user_states: set[str] = {row["state_id"] for row in user_states_response.data}
 
+        # Buscar categorias dos CNAEs (só se houver CNAEs)
         user_categories: set[str] = set()
         if user_cnae_ids:
             cnae_cats_response = await self._execute(
@@ -413,13 +428,6 @@ class OpportunityRepository:
                 .in_("cnae_id", user_cnae_ids)
             )
             user_categories = {row["category_id"] for row in cnae_cats_response.data}
-
-        user_states_response = await self._execute(
-            self.supabase.table("user_interested_states")
-            .select("state_id")
-            .eq("user_id", user_id)
-        )
-        user_states: set[str] = {row["state_id"] for row in user_states_response.data}
 
         return {"categories": user_categories, "states": user_states}
 
