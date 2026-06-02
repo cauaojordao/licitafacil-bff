@@ -1,7 +1,5 @@
 """Service para gerenciamento de perfil de usuário."""
 
-from typing import cast
-
 from fastapi import HTTPException, status
 
 from src.core.logging import get_logger
@@ -35,6 +33,7 @@ class UserProfileService:
             "company_name": user.company_name,
             "primary_cnae": None,
             "secondary_cnaes": [],
+            "interested_states": [],
         }
 
         user_cnaes = self.cnae_repository.get_user_cnaes(user.id)
@@ -50,30 +49,18 @@ class UserProfileService:
                     for cnae in user_cnaes[1:]
                 ]
 
+        raw_state_siglas = self.user_repository.get_interested_states(user.id)
+        profile["interested_states"] = [{"sigla": s} for s in raw_state_siglas]
+
         return profile
 
     async def update_user_cnpj(self, user: User, cnpj: str) -> dict:
         """Atualiza CNPJ do usuário e sincroniza CNAEs via CNPJA.
 
         Raises:
-            HTTPException 400: Se CNPJ já cadastrado para o próprio usuário
             HTTPException 404: Se CNPJ não encontrado na CNPJA
-            HTTPException 409: Se CNPJ já pertence a outro usuário
             HTTPException 500: Se erro ao buscar dados do CNPJ
         """
-        if user.cnpj == cnpj:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Este CNPJ já está cadastrado para seu usuário",
-            )
-
-        existing_user = self.user_repository.find_by_cnpj(cnpj)
-        if existing_user and existing_user["id"] != user.id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Este CNPJ já está cadastrado para outro usuário",
-            )
-
         try:
             cnpj_data = await self.opencnpj_client.get_cnpj_data(cnpj)
         except Exception as e:
@@ -98,13 +85,12 @@ class UserProfileService:
         cnaes_to_upsert = []
         cnae_ids = []
 
-        if cnaes_data.get("primary"):
-            primary = cast(dict[str, str], cnaes_data["primary"])
+        if cnaes_data["primary"]:
+            primary = cnaes_data["primary"]
             cnaes_to_upsert.append({"id": primary["id"], "title": primary["title"]})
             cnae_ids.append(primary["id"])
 
-        secondary_list = cast(list[dict[str, str]], cnaes_data.get("secondary", []))
-        for secondary in secondary_list:
+        for secondary in cnaes_data["secondary"]:
             cnaes_to_upsert.append({"id": secondary["id"], "title": secondary["title"]})
             cnae_ids.append(secondary["id"])
 
@@ -117,3 +103,96 @@ class UserProfileService:
         user.company_name = company_name
 
         return self.get_user_profile(user)
+
+    def update_user_profile(
+        self,
+        user: User,
+        name: str | None = None,
+        interested_state_siglas: list[str] | None = None,
+        cnae_ids: list[str] | None = None,
+    ) -> dict:
+        """Atualiza perfil do usuário (nome, estados, CNAEs)."""
+        if name is not None:
+            self.user_repository.update_profile(user.id, name=name)
+            user.name = name
+
+        if interested_state_siglas is not None:
+            self.user_repository.link_interested_states(user.id,
+                                                        interested_state_siglas)
+
+        if cnae_ids is not None:
+            self.cnae_repository.link_user_cnaes(user.id, cnae_ids)
+
+        logger.info(
+            "Perfil do usuário atualizado",
+            extra_fields={
+                "user_id": user.id,
+                "updated_name": name is not None,
+                "updated_states": interested_state_siglas is not None,
+                "updated_cnaes": cnae_ids is not None,
+            },
+        )
+
+        return self.get_user_profile(user)
+
+    async def refresh_user_cnaes(self, user: User) -> dict:
+        """Reexecuta consulta na Receita Federal para atualizar CNAEs do usuário."""
+        if not user.cnpj:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Usuário não possui CNPJ cadastrado",
+            )
+
+        try:
+            cnpj_data = await self.opencnpj_client.get_cnpj_data(user.cnpj)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erro ao buscar dados do CNPJ",
+            ) from e
+
+        if not cnpj_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="CNPJ não encontrado na base da Receita Federal",
+            )
+
+        cnaes_data = self.opencnpj_client.parse_cnaes_from_data(cnpj_data)
+
+        cnaes_to_upsert = []
+        cnae_ids = []
+
+        if cnaes_data["primary"]:
+            primary = cnaes_data["primary"]
+            cnaes_to_upsert.append({"id": primary["id"], "title": primary["title"]})
+            cnae_ids.append(primary["id"])
+
+        for secondary in cnaes_data["secondary"]:
+            cnaes_to_upsert.append({"id": secondary["id"], "title": secondary["title"]})
+            cnae_ids.append(secondary["id"])
+
+        if cnaes_to_upsert:
+            self.cnae_repository.upsert_many(cnaes_to_upsert)
+            self.cnae_repository.link_user_cnaes(user.id, cnae_ids)
+
+        logger.info(
+            "CNAEs do usuário sincronizados com Receita Federal",
+            extra_fields={"user_id": user.id, "cnpj": user.cnpj[:8] + "****"},
+        )
+
+        return self.get_user_profile(user)
+
+    def anonymize_user(self, user: User) -> dict:
+        """Anonimiza usuário em conformidade com LGPD Art. 18."""
+        anonymized_user = self.user_repository.anonymize_user(user.id)
+
+        logger.info(
+            "Usuário anonimizado (LGPD compliance)",
+            extra_fields={
+                "user_id": user.id,
+                "anonymized_at": anonymized_user["anonymized_at"],
+            },
+        )
+
+        return anonymized_user
+

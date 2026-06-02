@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api.v1.router import router as v1_router
 from src.core.config import settings
 from src.core.logging import setup_logging
-from src.core.middleware import RequestLoggingMiddleware
+from src.core.middleware import RateLimitMiddleware, RequestLoggingMiddleware
 
 setup_logging()
 
@@ -18,6 +18,11 @@ app = FastAPI(
 )
 
 app.add_middleware(RequestLoggingMiddleware)
+
+app.add_middleware(
+    RateLimitMiddleware,
+    limit_per_minute=settings.RATE_LIMIT_PER_MINUTE,
+)
 
 app.add_middleware(
     CORSMiddleware,

@@ -33,12 +33,6 @@ async def login(
     body: LoginRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
-    """
-    Autentica um usuário no sistema.
-
-    Returns:
-        Tokens de acesso e renovação
-    """
     return auth_service.login(body.email, body.password)
 
 
@@ -52,12 +46,6 @@ async def refresh(
     body: RefreshRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
-    """
-    Renova os tokens de autenticação.
-
-    Returns:
-        Novos tokens de acesso e renovação
-    """
     return auth_service.refresh_tokens(body.refresh_token)
 
 
@@ -72,13 +60,7 @@ async def request_password_reset(
     body: ForgotPasswordRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
-    """
-    Inicia processo de recuperação de senha.
-
-    Note:
-        Sempre retorna a mesma mensagem, independente do e-mail existir,
-        para evitar enumeração de usuários cadastrados.
-    """
+    """Sempre retorna mesma mensagem para evitar enumeração de usuários."""
     response, code = auth_service.request_password_reset(body.email)
 
     if code:
@@ -97,12 +79,6 @@ async def verify_reset_code(
     body: VerifyResetCodeRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> VerifyResetCodeResponse:
-    """
-    Valida código de reset e retorna token para redefinição final.
-
-    Returns:
-        Token de uso único e tempo de expiração
-    """
     result = auth_service.verify_reset_code(body.email, body.code)
     return VerifyResetCodeResponse(**result)
 
@@ -118,12 +94,7 @@ async def resend_reset_code(
     body: ResendCodeRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
-    """
-    Reenvia código de reset de senha.
-
-    Note:
-        Sempre retorna a mesma mensagem para evitar enumeração de usuários.
-    """
+    """Sempre retorna mesma mensagem para evitar enumeração de usuários."""
     response, code = auth_service.resend_reset_code(body.email)
 
     if code:
@@ -143,12 +114,6 @@ async def complete_password_reset(
     body: ResetPasswordRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
-    """
-    Redefine a senha do usuário.
-
-    Returns:
-        Mensagem de sucesso
-    """
     return auth_service.reset_password(body.reset_token, body.new_password)
 
 
@@ -162,18 +127,4 @@ async def complete_password_reset(
 async def logout(
     current_user: User = Depends(get_current_user),
 ) -> MessageResponse:
-    """
-    Faz logout do usuário autenticado.
-
-    Note:
-        Como usamos JWT stateless, o logout é tratado no client-side
-        (removendo o token). Este endpoint apenas valida que o usuário
-        está autenticado e retorna sucesso.
-
-        Para uma implementação mais robusta com blacklist de tokens,
-        você pode adicionar o token atual a uma lista de tokens invalidados.
-
-    Returns:
-        Mensagem de sucesso
-    """
     return MessageResponse(message="Logout realizado com sucesso")
