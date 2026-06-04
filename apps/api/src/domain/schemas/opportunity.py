@@ -110,3 +110,23 @@ class OpportunitySearchParams(BaseModel):
     page_size: int = Field(20, ge=1, le=100, alias="pageSize")
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+class CategoryStatsResponse(BaseModel):
+    """Schema para estatísticas de uma categoria."""
+
+    id: str
+    name: str
+    slug: str
+    count: int
+
+
+class MonthlyStatsResponse(BaseModel):
+    """Schema para estatísticas mensais de oportunidades."""
+
+    month: str
+    total_new_opportunities: int = Field(..., alias="totalNewOpportunities")
+    top_categories: list[CategoryStatsResponse] = Field(..., alias="topCategories")
+    generated_at: str = Field(..., alias="generatedAt")
+
+    model_config = ConfigDict(populate_by_name=True)

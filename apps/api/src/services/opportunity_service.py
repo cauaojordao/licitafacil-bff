@@ -152,12 +152,16 @@ class OpportunityService:
         return opportunity
 
     async def get_favorites(
-        self, user_id: str, page: int = 1, page_size: int = 20
+        self,
+        user_id: str,
+        page: int = 1,
+        page_size: int = 20,
+        month: str | None = None,
+        valid: bool | None = None,
     ) -> tuple[list[Opportunity], int]:
-        # removed duplicate call
 
         opportunities, total = await self.opportunity_repo.find_favorites(
-            user_id, page, page_size
+            user_id, page, page_size, month, valid
         )
 
         user_profile = await self._get_user_profile_cached(user_id)
@@ -257,6 +261,37 @@ class OpportunityService:
         )
 
         return opportunities, total
+
+    async def get_monthly_stats(self, month: str) -> dict[str, int | list[dict] | str]:
+        """Retorna estatísticas mensais de oportunidades.
+
+        Args:
+            month: Mês no formato YYYY-MM
+
+        Returns:
+            dict com total_new_opportunities (int), top_categories (list) e generated_at (str)
+        """
+        from datetime import UTC, datetime
+
+        stats = await self.opportunity_repo.get_monthly_stats(month)
+
+        # Adicionar timestamp de quando o dado foi gerado
+        result: dict[str, int | list[dict] | str] = {
+            "total_new_opportunities": stats["total_new_opportunities"],
+            "top_categories": stats["top_categories"],  # type: ignore
+            "generated_at": datetime.now(UTC).isoformat(),
+        }
+
+        logger.info(
+            "Estatísticas mensais calculadas",
+            extra_fields={
+                "month": month,
+                "total": result["total_new_opportunities"],
+                "categories_count": len(result["top_categories"]),  # type: ignore
+            },
+        )
+
+        return result
 
     def _apply_compatibility(
         self, opportunity: Opportunity, user_profile: dict | None
