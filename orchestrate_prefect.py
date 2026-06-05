@@ -1,9 +1,10 @@
+
 """
 Orquestrador Prefect — PNCP MEI Pipeline
 =========================================
 Executa o pipeline completo:
-  1. Bronze Layer  → Extração API PNCP → MongoDB + Kafka
-  2. Silver Layer  → Spark Streaming + Gemini AI → MongoDB + Iceberg
+  1. Consumer (Bronze)  → Extração API PNCP → MongoDB + Kafka
+  2. Spark (Silver)     → Streaming com IA  → Supabase + Iceberg
 
 Uso:
     # Execução única
@@ -15,24 +16,24 @@ Uso:
 
 from __future__ import annotations
 
+import sys
 import time
 from datetime import date, timedelta
 from threading import Thread
 
 from prefect import flow, get_run_logger, task
 
-from src.bronze.ingestion_job import BronzeIngestionJob
-from src.bronze.kafka_publisher import BronzeKafkaPublisher
-from src.bronze.pncp_client import PNCPClient
-from src.bronze.pncp_transformer import PNCPTransformer
-from src.bronze.raw_repository import RawRepository
-from src.config.settings import Settings
-from src.silver.streaming_job import SilverStreamingJob
+from apps.ingestion.src.repositories.bronze_repository import BronzeRepository
+from apps.ingestion.src.services.ingestion_service import IngestionService
+from apps.ingestion.src.services.kafka_service import KafkaService
+from apps.ingestion.src.services.transformation_service import TransformationService
+from libs.clients.clients.pncp import PNCPClient
+from libs.common.config import Settings
+from apps.processor.src.services.streaming_service import StreamingService
 
 # ───────────────────────────────────────────────────────────────────────────
 # Tasks
 # ───────────────────────────────────────────────────────────────────────────
-
 
 @task(name="Validar Configurações", retries=0)
 def task_validate_settings() -> None:
@@ -45,21 +46,31 @@ def task_bronze_ingestion(data_inicial: str, data_final: str) -> dict:
     logger = get_run_logger()
     logger.info(f"📥 Extraindo contratações: {data_inicial} → {data_final}")
 
-    job = BronzeIngestionJob(
-        pncp_client=PNCPClient(base_url=Settings.PNCP_BASE_URL),
-        transformer=PNCPTransformer(),
-        raw_repository=RawRepository(
-            uri=Settings.MONGO_URI,
-            database_name=Settings.MONGO_DATABASE,
-            collection_name=Settings.MONGO_COLLECTION,
-        ),
-        kafka_publisher=BronzeKafkaPublisher(
-            bootstrap_servers=Settings.KAFKA_BOOTSTRAP_SERVERS,
-            topic=Settings.KAFKA_BRONZE_TOPIC,
-        ),
+    # Inicialização dos serviços
+    pncp_client = PNCPClient(base_url=Settings.PNCP_BASE_URL)
+    transformation_service = TransformationService()
+
+    bronze_repository = BronzeRepository(
+        uri=Settings.MONGO_URI,
+        database_name=Settings.MONGO_DATABASE,
+        collection_name=Settings.MONGO_COLLECTION,
     )
 
-    result = job.run(
+    kafka_service = KafkaService(
+        bootstrap_servers=Settings.KAFKA_BOOTSTRAP_SERVERS,
+        topic=Settings.KAFKA_BRONZE_TOPIC,
+    )
+
+    # Serviço principal de ingestão
+    ingestion_service = IngestionService(
+        pncp_client=pncp_client,
+        transformation_service=transformation_service,
+        bronze_repository=bronze_repository,
+        kafka_service=kafka_service,
+    )
+
+    # Execução
+    result = ingestion_service.run_ingestion(
         endpoint="/v1/contratacoes/publicacao",
         params={
             "dataInicial": data_inicial,
@@ -74,6 +85,11 @@ def task_bronze_ingestion(data_inicial: str, data_final: str) -> dict:
         f"MongoDB: {result['mongo_upserted_count']}, "
         f"Kafka: {result['kafka_published_count']}"
     )
+
+    # Limpeza
+    bronze_repository.close()
+    kafka_service.close()
+
     return result
 
 
@@ -83,26 +99,27 @@ def task_silver_streaming(duration_seconds: int = 600) -> dict:
     logger = get_run_logger()
     logger.info(f"🔄 Iniciando Silver Streaming ({duration_seconds}s)...")
 
-    def run_streaming():
-        job = SilverStreamingJob(
+    def run_streaming() -> None:
+        streaming_service = StreamingService(
             kafka_bootstrap_servers=Settings.KAFKA_BOOTSTRAP_SERVERS,
             kafka_topic=Settings.KAFKA_BRONZE_TOPIC,
-            mongo_uri=Settings.MONGO_URI,
-            mongo_database=Settings.MONGO_DATABASE,
-            mongo_collection=Settings.MONGO_SILVER_COLLECTION,
+            supabase_url=Settings.SUPABASE_URL,
+            supabase_key=Settings.SUPABASE_KEY,
             gemini_api_key=Settings.GEMINI_API_KEY,
             iceberg_warehouse=Settings.ICEBERG_WAREHOUSE_PATH,
             iceberg_database=Settings.ICEBERG_DATABASE,
             iceberg_table=Settings.ICEBERG_TABLE,
             checkpoint_location=Settings.SPARK_CHECKPOINT_DIR,
         )
-        job.run()
+        try:
+            streaming_service.run_streaming()
+        except KeyboardInterrupt:
+            logger.info("🛑 Streaming interrompido")
+        finally:
+            streaming_service.close()
 
-    # Rodar em thread daemon
     thread = Thread(target=run_streaming, daemon=True)
     thread.start()
-
-    # Aguardar duração
     time.sleep(duration_seconds)
 
     logger.info(f"✅ Silver Streaming finalizado ({duration_seconds}s)")
@@ -133,23 +150,26 @@ def pncp_pipeline(
     Returns:
         Resultados de cada camada.
     """
-    # Definir datas
     hoje = date.today()
     if data_inicial is None:
         data_inicial = (hoje - timedelta(days=1)).strftime("%Y%m%d")
     if data_final is None:
         data_final = hoje.strftime("%Y%m%d")
 
-    # Validar
     task_validate_settings()
 
-    # Bronze
+    silver_future = None
+
+    if run_silver:
+        silver_future = task_silver_streaming.submit(silver_duration_seconds)
+        time.sleep(15)
+
     bronze_result = task_bronze_ingestion(data_inicial, data_final)
 
-    # Silver (opcional)
+
     silver_result = None
-    if run_silver:
-        silver_result = task_silver_streaming(silver_duration_seconds)
+    if silver_future:
+        silver_result = silver_future.result()
 
     return {
         "periodo": f"{data_inicial} → {data_final}",
@@ -163,10 +183,8 @@ def pncp_pipeline(
 # ───────────────────────────────────────────────────────────────────────────
 
 
-def create_deployments():
+def create_deployments() -> None:
     """Cria deployments com agendamento."""
-
-    # Deployment diário completo
     pncp_pipeline.serve(
         name="pncp-pipeline-diario",
         cron="0 7 * * *",
@@ -180,8 +198,6 @@ def create_deployments():
 
 
 if __name__ == "__main__":
-    import sys
-
     if len(sys.argv) > 1 and sys.argv[1] == "serve":
         print("🚀 Iniciando Prefect Server com deployment...")
         create_deployments()

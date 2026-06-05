@@ -1,0 +1,31 @@
+[project]
+name = "licitafacil-cronjob"
+version = "1.0.0"
+description = "Scheduled jobs - Iceberg maintenance, data cleanup, etc"
+requires-python = ">=3.11"
+
+dependencies = [
+    "licitafacil-common",
+    "pyspark==3.4.1",
+    "schedule>=1.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["cronjob*"]
+
+[project.scripts]
+cronjob-iceberg-maintenance = "cronjob.iceberg_maintenance:main"
+cronjob-scheduler = "cronjob.scheduler:main"
