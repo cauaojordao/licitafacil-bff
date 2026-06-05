@@ -50,7 +50,6 @@ htmlcov/
 .prefect/
 
 # Legacy (migrado para monorepo)
-src/
 .tox/
 .nox/
 .coverage

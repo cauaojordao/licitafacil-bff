@@ -1,4 +1,0 @@
-# Executa manutenção do Iceberg diariamente às 3h da manhã
-0 3 * * * /usr/bin/python3 -m cronjob.iceberg_maintenance >> /var/log/cron.log 2>&1
-
-# Linha em branco necessária no final do crontab
