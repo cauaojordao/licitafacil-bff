@@ -15,8 +15,12 @@ def _slugify(value: str) -> str:
     value = unicodedata.normalize("NFKD", value)
     value = value.encode("ascii", "ignore").decode("ascii")
     value = value.lower()
-    value = re.sub(r"[^a-z0-9]+", "_", value)
-    return value.strip("_") or "outros"
+    value = re.sub(r"[^a-z0-9]+", "-", value)
+    return value.strip("-") or "outros"
+
+
+def _normalize_cnae(code: str) -> str:
+    return re.sub(r"\D", "", code or "")
 
 
 def _map_status(document: dict[str, Any]) -> str:
@@ -56,14 +60,17 @@ def _map_document_to_row(document: dict[str, Any]) -> dict[str, Any]:
         ),
         "estimated_value": float(document.get("valor_total_estimado") or 0),
         "opening_date": (
-            document.get("data_abertura_proposta")
-            or document.get("data_publicacao_pncp")
+                document.get("data_abertura_proposta")
+                or document.get("data_publicacao_pncp")
         ),
         "closing_date": (
-            document.get("data_encerramento_proposta")
-            or document.get("data_publicacao_pncp")
+                document.get("data_encerramento_proposta")
+                or document.get("data_publicacao_pncp")
         ),
-        "proposals_opening_date": document.get("data_publicacao_pncp"),
+        "proposals_opening_date": (
+                document.get("data_abertura_proposta")
+                or document.get("data_publicacao_pncp")
+        ),
         "status": _map_status(document),
         "agency_name": str(orgao.get("razao_social") or "Não informado"),
         "agency_cnpj": str(orgao.get("cnpj") or "")[:14],
@@ -74,10 +81,6 @@ def _map_document_to_row(document: dict[str, Any]) -> dict[str, Any]:
 
 
 class SilverRepository:
-    """
-    Repositório para persistência de dados enriquecidos na camada Silver.
-    """
-
     def __init__(self, supabase: Client) -> None:
         self.supabase = supabase
 
@@ -85,92 +88,230 @@ class SilverRepository:
         pass
 
     def _get_opportunity_id(self, pncp_id: str) -> str | None:
-        result = (
-            self.supabase.table("opportunities")
+        response = (
+            self.supabase
+            .table("opportunities")
             .select("id")
             .eq("pncp_id", pncp_id)
+            .limit(1)
             .execute()
         )
 
-        if not result.data:
+        if response is None or not response.data:
             return None
 
-        return result.data[0]["id"]
+        return response.data[0].get("id")
 
-    def _get_or_create_category(self, category_name: str) -> str | None:
-        category_name = category_name or "outros"
-        slug = _slugify(category_name)
+    def _get_or_create_category(self, name: str) -> str | None:
+        name = name or "Outros"
+        slug = _slugify(name)
 
-        result = (
-            self.supabase.table("categories")
+        response = (
+            self.supabase
+            .table("categories")
             .select("id")
             .eq("slug", slug)
+            .limit(1)
             .execute()
         )
 
-        if result.data:
-            return result.data[0]["id"]
+        if response is not None and response.data:
+            return response.data[0].get("id")
 
-        created = (
-            self.supabase.table("categories")
-            .insert(
+        insert_response = (
+            self.supabase
+            .table("categories")
+            .insert({
+                "name": name,
+                "slug": slug,
+                "description": name,
+            })
+            .execute()
+        )
+
+        if insert_response is None or not insert_response.data:
+            return None
+
+        return insert_response.data[0].get("id")
+
+    def _get_category_ids_by_cnae_ids(self, cnae_ids: list[str]) -> list[str]:
+        if not cnae_ids:
+            return []
+
+        response = (
+            self.supabase
+            .table("cnae_categories")
+            .select("category_id")
+            .in_("cnae_id", cnae_ids)
+            .execute()
+        )
+
+        if response is None or not response.data:
+            return []
+
+        return [
+            row["category_id"]
+            for row in response.data
+            if row.get("category_id")
+        ]
+
+    def _link_opportunity_category_by_id(
+            self,
+            opportunity_id: str,
+            category_id: str,
+            is_primary: bool = False,
+    ) -> None:
+        if not opportunity_id or not category_id:
+            return
+
+        response = (
+            self.supabase
+            .table("opportunity_categories")
+            .upsert(
                 {
-                    "name": category_name,
-                    "slug": slug,
-                    "description": (
-                        f"Categoria classificada automaticamente pela camada Silver: "
-                        f"{category_name}"
-                    ),
-                }
+                    "opportunity_id": opportunity_id,
+                    "category_id": category_id,
+                    "is_primary": is_primary,
+                },
+                on_conflict="opportunity_id,category_id",
             )
             .execute()
         )
 
-        if not created.data:
-            return None
+        if response is None:
+            print(
+                f"⚠️ Supabase retornou None ao vincular categoria {category_id}",
+                flush=True,
+            )
 
-        return created.data[0]["id"]
+    def _link_opportunity_categories_from_cnaes(
+            self,
+            pncp_id: str,
+            categorias_cnae: list[dict],
+    ) -> None:
+        try:
+            opportunity_id = self._get_opportunity_id(pncp_id)
 
-    def _link_opportunity_category(
-        self,
-        pncp_id: str,
-        category_name: str,
-        is_primary: bool = True,
+            if not opportunity_id:
+                print(f"⚠️ Opportunity não encontrada para PNCP {pncp_id}", flush=True)
+                return
+
+            cnae_ids = []
+
+            for item in categorias_cnae or []:
+                codigo = _normalize_cnae(str(item.get("codigo") or ""))
+                if codigo:
+                    cnae_ids.append(codigo)
+
+            cnae_ids = list(dict.fromkeys(cnae_ids))
+
+            category_ids = self._get_category_ids_by_cnae_ids(cnae_ids)
+
+            if not category_ids:
+                category_name = (
+                    categorias_cnae[0].get("descricao")
+                    if categorias_cnae
+                    else "Outros"
+                )
+
+                category_id = self._get_or_create_category(category_name)
+
+                if category_id:
+                    self._link_opportunity_category_by_id(
+                        opportunity_id=opportunity_id,
+                        category_id=category_id,
+                        is_primary=True,
+                    )
+
+                return
+
+            for index, category_id in enumerate(category_ids):
+                self._link_opportunity_category_by_id(
+                    opportunity_id=opportunity_id,
+                    category_id=category_id,
+                    is_primary=index == 0,
+                )
+
+        except Exception as e:
+            print(f"⚠️ Erro ao vincular categorias CNAE de {pncp_id}: {e}", flush=True)
+
+    def _upsert_attachments(
+            self,
+            pncp_id: str,
+            document: dict[str, Any],
     ) -> None:
         opportunity_id = self._get_opportunity_id(pncp_id)
 
         if not opportunity_id:
-            print(f"⚠️ Opportunity não encontrada para PNCP {pncp_id}")
             return
 
-        category_id = self._get_or_create_category(category_name)
+        attachments = (
+                document.get("anexos")
+                or document.get("documentos")
+                or document.get("attachments")
+                or []
+        )
 
-        if not category_id:
-            print(f"⚠️ Categoria não encontrada/criada: {category_name}")
+        if not isinstance(attachments, list) or not attachments:
             return
 
-        self.supabase.table("opportunity_categories").upsert(
-            {
-                "opportunity_id": opportunity_id,
-                "category_id": category_id,
-                "is_primary": is_primary,
-            },
-            on_conflict="opportunity_id,category_id",
-        ).execute()
+        rows = []
+
+        for item in attachments:
+            if not isinstance(item, dict):
+                continue
+
+            url = (
+                    item.get("url")
+                    or item.get("link")
+                    or item.get("uri")
+                    or item.get("linkDownload")
+            )
+
+            if not url:
+                continue
+
+            rows.append(
+                {
+                    "opportunity_id": opportunity_id,
+                    "name": (
+                            item.get("name")
+                            or item.get("nome")
+                            or item.get("titulo")
+                            or "Anexo"
+                    ),
+                    "url": url,
+                    "size_bytes": item.get("size_bytes") or item.get("tamanho"),
+                    "mime_type": item.get("mime_type") or "application/pdf",
+                }
+            )
+
+        if rows:
+            self.supabase.table("opportunity_attachments").upsert(
+                rows,
+                on_conflict="opportunity_id,url",
+            ).execute()
 
     def upsert(self, document: dict[str, Any]) -> bool:
         try:
             row = _map_document_to_row(document)
+
+            if not row["pncp_id"]:
+                return False
 
             self.supabase.table("opportunities").upsert(
                 row,
                 on_conflict="pncp_id",
             ).execute()
 
-            self._link_opportunity_category(
+            self._link_opportunity_categories_from_cnaes(
                 pncp_id=row["pncp_id"],
-                category_name=document.get("categoria_ia") or "outros",
-                is_primary=True,
+                categorias_cnae=document.get("categorias_cnae") or [],
+            )
+
+            self._upsert_attachments(
+                pncp_id=row["pncp_id"],
+                document=document,
             )
 
             return True
@@ -196,25 +337,47 @@ class SilverRepository:
 
         try:
             rows = [_map_document_to_row(doc) for doc in documents]
+            rows = [row for row in rows if row.get("pncp_id")]
+
+            if not rows:
+                return 0
 
             self.supabase.table("opportunities").upsert(
                 rows,
                 on_conflict="pncp_id",
             ).execute()
 
+            print(f"✅ Upsert opportunities OK: {len(rows)}", flush=True)
+
             for doc in documents:
-                self._link_opportunity_category(
-                    pncp_id=str(doc.get("numero_controle_pncp")),
-                    category_name=doc.get("categoria_ia") or "outros",
-                    is_primary=True,
-                )
+                pncp_id = str(doc.get("numero_controle_pncp") or "")
+
+                if not pncp_id:
+                    continue
+
+                try:
+                    self._link_opportunity_categories_from_cnaes(
+                        pncp_id=pncp_id,
+                        categorias_cnae=doc.get("categorias_cnae") or [],
+                    )
+                except Exception as e:
+                    print(f"⚠️ Erro ao vincular CNAEs de {pncp_id}: {e}", flush=True)
+
+                try:
+                    self._upsert_attachments(
+                        pncp_id=pncp_id,
+                        document=doc,
+                    )
+                except Exception as e:
+                    print(f"⚠️ Erro ao salvar anexos de {pncp_id}: {e}", flush=True)
 
             return len(rows)
 
         except Exception as e:
-            print(f"❌ Erro ao fazer upsert em lote: {e}")
+            print(f"❌ Erro ao fazer upsert em lote: {e}", flush=True)
 
             processed = 0
+
             for doc in documents:
                 if self.upsert(doc):
                     processed += 1

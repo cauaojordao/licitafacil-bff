@@ -4,7 +4,33 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="716f5719-199e-422c-a05f-e1b2dfae22e1" name="Changes" comment="refactor: remove deprecated services and unused modules&#10;&#10;- Deleted outdated ingestion, cronjob, and Spark job scripts.&#10;- Removed related Dockerfiles and libraries no longer in use." />
+    <list default="true" id="716f5719-199e-422c-a05f-e1b2dfae22e1" name="Changes" comment="refactor: remove deprecated services and unused modules&#10;&#10;- Deleted outdated ingestion, cronjob, and Spark job scripts.&#10;- Removed related Dockerfiles and libraries no longer in use.">
+      <change afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/maintenance/crontab" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/libs/clients/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/ingestion/src/consumer/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/ingestion/src/consumer/ingestion_job.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/ingestion/src/consumer/kafka_publisher.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/ingestion/src/consumer/main.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/ingestion/src/consumer/publisher.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/ingestion/src/consumer/transformer.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/ingestion/src/domain/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/ingestion/src/integrations/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/ingestion/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/ingestion/src/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/ingestion/src/services/ingestion_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/ingestion/src/services/ingestion_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/ingestion/src/services/kafka_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/ingestion/src/services/kafka_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/maintenance/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/apps/maintenance/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/maintenance/src/domain/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/processor/src/consumer/KafkaSparkConsumer.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/processor/src/consumer/KafkaSparkConsumer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/processor/src/repositories/silver_repository.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/processor/src/repositories/silver_repository.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/processor/src/services/enrichment_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/processor/src/services/enrichment_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/processor/src/services/streaming_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/apps/processor/src/services/streaming_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/libs/clients/clients/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/libs/clients/clients/pncp.py" beforeDir="false" afterPath="$PROJECT_DIR$/libs/clients/pncp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrate_prefect.py" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrate_prefect.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -13,7 +39,7 @@
   <component name="CopilotChats">
     <option name="panelChat">
       <chat>
-        <option name="activeSessionId" value="914d8887-0eb8-466e-849d-8894fe027020" />
+        <option name="activeSessionId" value="bc1662ac-3835-4c65-b517-adadac5c44ce" />
         <option name="sessions">
           <session>
             <option name="chatType" value="PANEL" />
@@ -54,6 +80,23 @@
             <option name="modeId" value="Agent" />
             <option name="modelType" value="builtin_family" />
             <option name="modelValue" value="claude-haiku-4.5" />
+            <option name="targetType" value="LOCAL" />
+          </session>
+          <session>
+            <option name="chatType" value="PANEL" />
+            <option name="id" value="3878ca3a-50f6-4000-875c-afc8dfa540b9" />
+            <option name="modeId" value="Agent" />
+            <option name="modelType" value="builtin_family" />
+            <option name="modelValue" value="claude-haiku-4.5" />
+            <option name="targetType" value="LOCAL" />
+          </session>
+          <session>
+            <option name="chatType" value="PANEL" />
+            <option name="id" value="bc1662ac-3835-4c65-b517-adadac5c44ce" />
+            <option name="modeId" value="Ask" />
+            <option name="modelType" value="builtin_family" />
+            <option name="modelValue" value="claude-haiku-4.5" />
+            <option name="status" value="Completed" />
             <option name="targetType" value="LOCAL" />
           </session>
         </option>
@@ -106,7 +149,7 @@
   <component name="ProjectSessionTemplates">
     <option name="panelTemplate">
       <template>
-        <option name="modeId" value="Agent" />
+        <option name="modeId" value="Ask" />
         <option name="model">
           <model>
             <option name="modelType" value="builtin_family" />
@@ -150,11 +193,11 @@
       <recent name="C:\Users\morai\PycharmProjects\licitafacil-bff" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\morai\PycharmProjects\licitafacil-bff\libs\clients" />
+      <recent name="C:\Users\morai\PycharmProjects\licitafacil-bff\libs" />
       <recent name="C:\Users\morai\PycharmProjects\licitafacil-bff\apps\processor\src\repositories" />
       <recent name="C:\Users\morai\PycharmProjects\licitafacil-bff\libs\common\repositories" />
       <recent name="C:\Users\morai\PycharmProjects\licitafacil-bff\apps\processor\src\services" />
-      <recent name="C:\Users\morai\PycharmProjects\licitafacil-bff\libs\common" />
-      <recent name="C:\Users\morai\PycharmProjects\licitafacil-bff\libs\common\common" />
     </key>
   </component>
   <component name="RunManager">
@@ -219,6 +262,7 @@
       <workItem from="1780158350750" duration="1606000" />
       <workItem from="1780159994917" duration="13389000" />
       <workItem from="1780668651191" duration="163000" />
+      <workItem from="1780668831898" duration="10450000" />
     </task>
     <task id="LOCAL-00001" summary="feat: Removed MongoDBLoader and PNCPExtractor; refactored pipelines into Bronze/Silver layers with Kafka integration.">
       <option name="closed" value="true" />
@@ -327,58 +371,28 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/apps/processor/src/repositories/silver_repository.py</url>
-          <line>177</line>
+          <line>318</line>
           <option name="timeStamp" value="7" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/apps/processor/src/repositories/silver_repository.py</url>
-          <line>162</line>
+          <line>296</line>
           <option name="timeStamp" value="8" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/apps/processor/src/repositories/silver_repository.py</url>
-          <line>86</line>
+          <line>89</line>
           <option name="timeStamp" value="9" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/apps/processor/src/repositories/silver_repository.py</url>
-          <line>23</line>
-          <option name="timeStamp" value="10" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/apps/processor/src/repositories/silver_repository.py</url>
-          <line>24</line>
-          <option name="timeStamp" value="11" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/apps/ingestion/src/services/kafka_service.py</url>
-          <line>37</line>
+          <line>36</line>
           <option name="timeStamp" value="13" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/apps/ingestion/src/services/kafka_service.py</url>
           <line>35</line>
           <option name="timeStamp" value="14" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/apps/ingestion/src/services/ingestion_service.py</url>
-          <line>57</line>
-          <option name="timeStamp" value="15" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/apps/processor/src/services/streaming_service.py</url>
-          <line>124</line>
-          <option name="timeStamp" value="17" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/apps/processor/src/services/streaming_service.py</url>
-          <line>126</line>
-          <option name="timeStamp" value="18" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/apps/processor/src/repositories/silver_repository.py</url>
-          <line>197</line>
-          <option name="timeStamp" value="19" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
