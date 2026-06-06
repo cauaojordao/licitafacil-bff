@@ -116,15 +116,12 @@ class KafkaSparkConsumer:
         )
 
     def read_stream(self) -> DataFrame:
-        """
-        Lê o stream do Kafka e retorna DataFrame já estruturado.
-        """
         raw_stream = (
             self.spark.readStream
             .format("kafka")
             .option("kafka.bootstrap.servers", self.kafka_bootstrap_servers)
             .option("subscribe", self.topic)
-            .option("startingOffsets", "latest")
+            .option("startingOffsets", "earliest")
             .option("failOnDataLoss", "false")
             .load()
         )

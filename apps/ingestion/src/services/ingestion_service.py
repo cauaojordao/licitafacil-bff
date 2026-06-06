@@ -4,8 +4,8 @@ Serviço de ingestão de dados da camada Bronze.
 
 from typing import Dict
 
-from libs.clients.clients.pncp import PNCPClient
-from repositories.bronze_repository import BronzeRepository
+from libs.clients.pncp import PNCPClient
+from apps.ingestion.src.repositories.bronze_repository import BronzeRepository
 from services.kafka_service import KafkaService
 from services.transformation_service import TransformationService
 

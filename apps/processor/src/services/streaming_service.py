@@ -10,6 +10,7 @@ from decimal import Decimal
 from pyspark.sql import DataFrame, SparkSession
 from supabase import create_client
 
+from apps.api.src.repositories.cnae_repository import CNAERepository
 from apps.processor.src.consumer.KafkaSparkConsumer import KafkaSparkConsumer
 from apps.processor.src.repositories.iceberg_repository import IcebergRepository
 from apps.processor.src.repositories.silver_repository import SilverRepository
@@ -77,17 +78,23 @@ class StreamingService:
         )
 
         self.supabase = create_client(supabase_url, supabase_key)
+        self.cnae_repository = CNAERepository(self.supabase)
         self.silver_repository = SilverRepository(self.supabase)
-        self.iceberg_repository = IcebergRepository(self.spark, iceberg_warehouse)
-        self.enrichment_service = EnrichmentService(gemini_api_key)
+        self.iceberg_repository = IcebergRepository(
+            self.spark,
+            iceberg_warehouse,
+        )
+        self.enrichment_service = EnrichmentService(
+            gemini_api_key=gemini_api_key,
+            cnae_repository=self.cnae_repository,
+        )
 
     def run_streaming(self) -> None:
-        """
-        Executa o job de streaming.
-        """
-        print("🚀 Iniciando Spark Streaming - Silver Layer")
+        print("🚀 Iniciando Spark Streaming - Silver Layer", flush=True)
 
-        self.iceberg_repository.create_database_if_not_exists(self.iceberg_database)
+        self.iceberg_repository.create_database_if_not_exists(
+            self.iceberg_database
+        )
 
         processed_df = self.kafka_consumer.read_stream()
 
@@ -95,25 +102,55 @@ class StreamingService:
             processed_df.writeStream
             .foreachBatch(self._process_batch)
             .outputMode("append")
-            .option("checkpointLocation", self.checkpoint_location)
-            .trigger(processingTime="30 seconds")
+            .option(
+                "checkpointLocation",
+                self.checkpoint_location,
+            )
+            .trigger(availableNow=True)
             .start()
         )
 
-        print("✅ Streaming iniciado. Aguardando mensagens...")
+        print(
+            "✅ Streaming iniciado. Processando mensagens disponíveis...",
+            flush=True,
+        )
+
         query.awaitTermination()
 
+        print(
+            "✅ Silver Streaming finalizado",
+            flush=True,
+        )
+
     def _process_batch(self, df: DataFrame, batch_id: int) -> None:
-        """
-        Processa um microbatch de dados.
-        """
+        print(f"📦 Batch recebido: {batch_id}", flush=True)
+
+        df.persist()
+
         count = df.count()
-        print(f"📦 Processando batch {batch_id} com {count} registros")
+
+        print(f"📦 Processando batch {batch_id} com {count} registros", flush=True)
 
         if count == 0:
+            df.unpersist()
             return
 
+        df.select(
+            "numero_controle_pncp",
+            "objeto_compra",
+            "valor_total_estimado",
+        ).show(5, truncate=False)
+
         documents = [row.asDict(recursive=True) for row in df.collect()]
+
+        unique_docs = {
+            doc["numero_controle_pncp"]: doc
+            for doc in documents
+        }.values()
+
+        documents = list(unique_docs)
+
+        print(f"🧹 Após deduplicação: {len(documents)} registros", flush=True)
 
         enriched_documents = self.enrichment_service.enrich_batch(documents)
 
@@ -125,7 +162,8 @@ class StreamingService:
         enriched_documents = list(unique_docs)
 
         postgres_count = self.silver_repository.upsert_many(enriched_documents)
-        print(f"💾 Persistidos no PostgreSQL: {postgres_count} registros")
+
+        print(f"💾 Persistidos no PostgreSQL: {postgres_count} registros", flush=True)
 
         if enriched_documents:
             normalized_documents = [
@@ -140,6 +178,11 @@ class StreamingService:
                 self.iceberg_database,
                 self.iceberg_table,
                 mode="append",
+            )
+
+            print(
+                f"🧊 Persistidos no Iceberg: {len(enriched_documents)} registros",
+                flush=True,
             )
 
     def _create_spark_session(self) -> SparkSession:
@@ -167,8 +210,10 @@ class StreamingService:
             .appName("PNCP-Silver-Streaming")
             .config(
                 "spark.jars.packages",
-                "org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.1,"
-                "org.apache.iceberg:iceberg-spark-runtime-3.4_2.12:1.4.3",
+                ",".join([
+                    "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2",
+                    "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1",
+                ])
             )
             .config("spark.pyspark.python", sys.executable)
             .config("spark.pyspark.driver.python", sys.executable)

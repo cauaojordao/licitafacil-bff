@@ -5,10 +5,10 @@ Extrai dados da API PNCP, persiste no MongoDB e publica no Kafka.
 """
 
 from core.config import ConsumerSettings
-from libs.clients.clients.pncp import PNCPClient
-from repositories.bronze_repository import BronzeRepository
+from libs.clients.pncp import PNCPClient
+from apps.ingestion.src.repositories.bronze_repository import BronzeRepository
 from services.ingestion_service import IngestionService
-from services.kafka_service import KafkaService
+from apps.ingestion.src.services.kafka_service import KafkaService
 from services.transformation_service import TransformationService
 
 

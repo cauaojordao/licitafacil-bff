@@ -34,7 +34,6 @@ class KafkaService:
             Número de mensagens publicadas com sucesso.
         """
         try:
-            # Usa o método publish_many que já faz flush internamente
             published_count = self.producer.publish_many(self.topic, data)
             print(f"📤 Publicados no Kafka: {published_count} mensagens")
             return published_count

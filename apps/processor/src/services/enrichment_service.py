@@ -4,10 +4,18 @@ Classifica editais por CNAE e gera resumo usando Gemini.
 """
 
 import json
+import re
 from datetime import datetime
-from typing import Any, List
+from typing import Any
 
 import google.generativeai as genai
+
+from apps.api.src.repositories.cnae_repository import CNAERepository
+
+
+def normalize_cnae(code: str) -> str:
+    """Remove máscara do CNAE: 6201-5/00 -> 6201500."""
+    return re.sub(r"\D", "", code or "")
 
 
 class EnrichmentService:
@@ -15,30 +23,74 @@ class EnrichmentService:
     Serviço responsável pelo enriquecimento de dados com IA.
     """
 
-    CNAES_MEI = [
-        {"codigo": "5611-2/01", "descricao": "Restaurantes e similares"},
-        {"codigo": "4744-0/01", "descricao": "Comércio varejista de ferragens e ferramentas"},
-        {"codigo": "4753-9/00", "descricao": "Comércio varejista especializado de eletrodomésticos"},
-        {"codigo": "4789-0/05", "descricao": "Comércio varejista de produtos saneantes domissanitários"},
-        {"codigo": "8121-4/00", "descricao": "Limpeza em prédios e em domicílios"},
-        {"codigo": "4330-4/05", "descricao": "Aplicação de revestimentos e de resinas"},
-        {"codigo": "4313-4/00", "descricao": "Obras de terraplenagem"},
+    FALLBACK_CNAES_MEI = [
+        {"codigo": "5611201", "descricao": "Restaurantes e similares"},
+        {"codigo": "4744001", "descricao": "Comércio varejista de ferragens e ferramentas"},
+        {"codigo": "4753900", "descricao": "Comércio varejista especializado de eletrodomésticos"},
+        {"codigo": "4789005", "descricao": "Comércio varejista de produtos saneantes domissanitários"},
+        {"codigo": "8121400", "descricao": "Limpeza em prédios e em domicílios"},
+        {"codigo": "4330405", "descricao": "Aplicação de revestimentos e de resinas"},
+        {"codigo": "4313400", "descricao": "Obras de terraplenagem"},
         {
-            "codigo": "4322-3/02",
+            "codigo": "4322302",
             "descricao": "Instalação e manutenção de sistemas centrais de ar condicionado",
         },
-        {"codigo": "7490-1/04", "descricao": "Consultoria em tecnologia da informação"},
-        {"codigo": "6201-5/00", "descricao": "Desenvolvimento de programas de computador sob encomenda"},
+        {"codigo": "6204000", "descricao": "Consultoria em tecnologia da informação"},
+        {"codigo": "6201501", "descricao": "Desenvolvimento de programas de computador sob encomenda"},
     ]
 
-    def __init__(self, gemini_api_key: str, model: str = "gemini-2.5-flash"):
+    def __init__(
+        self,
+        gemini_api_key: str,
+        cnae_repository: CNAERepository | None = None,
+        model: str = "gemini-2.5-flash",
+    ):
         genai.configure(api_key=gemini_api_key)
         self.model = genai.GenerativeModel(model)
+        self.cnae_repository = cnae_repository
+        self.cnaes_mei = self._load_cnaes_from_database()
 
-    def enrich_batch(self, documents: List[dict]) -> List[dict]:
+    def _load_cnaes_from_database(self) -> list[dict]:
         """
-        Enriquece um lote de documentos.
+        Carrega os CNAEs do banco.
+        Caso não consiga, usa fallback local.
         """
+        if not self.cnae_repository:
+            return self.FALLBACK_CNAES_MEI
+
+        try:
+            result = self.cnae_repository.db.table("cnaes").select("*").execute()
+            rows = result.data or []
+
+            cnaes = []
+
+            for row in rows:
+                codigo = normalize_cnae(str(row.get("id") or ""))
+
+                descricao = (
+                    row.get("title")
+                    or row.get("description")
+                    or row.get("descricao")
+                    or ""
+                )
+
+                if not codigo or not descricao:
+                    continue
+
+                cnaes.append(
+                    {
+                        "codigo": codigo,
+                        "descricao": descricao,
+                    }
+                )
+
+            return cnaes or self.FALLBACK_CNAES_MEI
+
+        except Exception as e:
+            print(f"⚠️ Erro ao carregar CNAEs do banco: {e}")
+            return self.FALLBACK_CNAES_MEI
+
+    def enrich_batch(self, documents: list[dict]) -> list[dict]:
         enriched = []
 
         for doc in documents:
@@ -68,9 +120,6 @@ class EnrichmentService:
         return enriched
 
     def _enrich_document(self, document: dict) -> dict:
-        """
-        Enriquece um documento individual usando Gemini.
-        """
         enriched = document.copy()
 
         objeto_compra = document.get("objeto_compra") or ""
@@ -98,9 +147,6 @@ class EnrichmentService:
         return enriched
 
     def _call_gemini(self, document: dict) -> dict[str, Any]:
-        """
-        Chama Gemini uma única vez para classificar CNAEs e gerar resumo.
-        """
         objeto_compra = document.get("objeto_compra") or ""
         valor_estimado = document.get("valor_total_estimado") or 0
         modalidade = document.get("modalidade_nome") or "N/A"
@@ -117,7 +163,7 @@ Analise o edital abaixo e retorne:
 3. Uma justificativa curta da categorização.
 
 CNAES DISPONÍVEIS:
-{json.dumps(self.CNAES_MEI, ensure_ascii=False, indent=2)}
+{json.dumps(self.cnaes_mei, ensure_ascii=False, indent=2)}
 
 DADOS DO EDITAL:
 Objeto: {objeto_compra}
@@ -131,6 +177,7 @@ UF: {unidade.get("uf_sigla") or "N/A"}
 
 Regras:
 - Use somente CNAEs da lista fornecida.
+- Retorne o código CNAE sem máscara, apenas números. Exemplo: 6201501.
 - Retorne no máximo 3 CNAEs.
 - Se nenhum CNAE for adequado, retorne "categorias": [].
 - O resumo deve ter no máximo 150 caracteres.
@@ -141,7 +188,7 @@ Formato obrigatório:
 {{
   "categorias": [
     {{
-      "codigo": "XXXX-X/XX",
+      "codigo": "6201501",
       "descricao": "...",
       "confianca": 0.95
     }}
@@ -151,10 +198,10 @@ Formato obrigatório:
   "status": "success"
 }}
 """
+
         try:
             response = self.model.generate_content(prompt)
             result_text = (response.text or "").strip()
-
             result_text = self._remove_markdown_json(result_text)
 
             result = json.loads(result_text)
@@ -185,14 +232,14 @@ Formato obrigatório:
 
     def _sanitize_categories(self, categorias: Any) -> list[dict]:
         """
-        Garante que o Gemini só retorne CNAEs existentes na lista permitida.
+        Garante que o Gemini só retorne CNAEs existentes no banco/lista permitida.
         """
         if not isinstance(categorias, list):
             return []
 
         allowed_by_code = {
-            item["codigo"]: item["descricao"]
-            for item in self.CNAES_MEI
+            normalize_cnae(item["codigo"]): item["descricao"]
+            for item in self.cnaes_mei
         }
 
         sanitized = []
@@ -201,7 +248,7 @@ Formato obrigatório:
             if not isinstance(item, dict):
                 continue
 
-            codigo = str(item.get("codigo") or "").strip()
+            codigo = normalize_cnae(str(item.get("codigo") or ""))
             descricao = allowed_by_code.get(codigo)
 
             if not descricao:
@@ -225,22 +272,16 @@ Formato obrigatório:
         return sanitized[:3]
 
     def _extract_main_category(self, categorias: list[dict]) -> str:
-        """
-        Extrai categoria principal para salvar em categories/opportunity_categories.
-        """
         if not categorias:
             return "Outros"
 
         return categorias[0].get("descricao") or "Outros"
 
     def _calculate_relevance_score(
-            self,
-            document: dict,
-            categorias: list[dict],
+        self,
+        document: dict,
+        categorias: list[dict],
     ) -> float:
-        """
-        Calcula score de relevância baseado em valor e confiança do Gemini.
-        """
         score = 0.5
 
         valor = float(document.get("valor_total_estimado") or 0)
@@ -255,9 +296,6 @@ Formato obrigatório:
         return min(1.0, max(0.0, score))
 
     def _remove_markdown_json(self, text: str) -> str:
-        """
-        Remove ```json ... ``` caso o Gemini retorne markdown.
-        """
         if not text:
             return "{}"
 
