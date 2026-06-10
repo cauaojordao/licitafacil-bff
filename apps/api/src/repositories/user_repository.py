@@ -1,6 +1,6 @@
 """Repository para gerenciamento de usuários."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from supabase import Client
 
@@ -184,4 +184,35 @@ class UserRepository(BaseRepository):
         self.supabase.table("user_cnaes").delete().eq("user_id", user_id).execute()
 
         return self.update(user_id, anonymized_data)
+
+    def is_account_locked(self, user: dict) -> bool:
+        """Verifica se a conta está bloqueada por excesso de tentativas."""
+        if not user.get("locked_until"):
+            return False
+        locked_until = datetime.fromisoformat(user["locked_until"])
+        return datetime.now(UTC) < locked_until
+
+    def increment_failed_attempts(self, user_id: str) -> dict:
+        """Incrementa contador de tentativas falhadas e bloqueia após limite."""
+        user = self.find_by_id(user_id)
+        if not user:
+            raise RuntimeError("Usuário não encontrado")
+
+        failed_attempts = user.get("failed_login_attempts", 0) + 1
+        data: dict = {"failed_login_attempts": failed_attempts}
+
+        if failed_attempts >= 10:
+            lock_duration_minutes = 5
+            locked_until = (
+                datetime.now(UTC) + timedelta(minutes=lock_duration_minutes)
+            ).isoformat()
+            data["locked_until"] = locked_until
+
+        return self.update(user_id, data)
+
+    def reset_failed_attempts(self, user_id: str) -> dict:
+        """Reseta contador de tentativas falhadas após login bem-sucedido."""
+        return self.update(
+            user_id, {"failed_login_attempts": 0, "locked_until": None}
+        )
 

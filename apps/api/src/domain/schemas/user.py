@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field, field_validator
 
 from src.utils.cnpj import clean_cnpj as _clean_cnpj
+from src.utils.password_validator import validate_password_strength
 
 
 class CNAEResponse(BaseModel):
@@ -41,8 +42,7 @@ class RegisterUserRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("A senha deve ter pelo menos 8 caracteres")
+        validate_password_strength(v)
         return v
 
     @field_validator("cnpj")

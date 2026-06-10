@@ -98,9 +98,10 @@ jobs:
 
   # ------------------------------------------------------------
   # 5. Segurança — pip-audit escaneia CVEs nas dependências
+  #                bandit verifica vulnerabilidades no código (OWASP Top 10)
   # ------------------------------------------------------------
   security:
-    name: Security Scan (pip-audit)
+    name: Security Scan (pip-audit & bandit)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -109,8 +110,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Instalar pip-audit
-        run: pip install pip-audit
+      - name: Instalar pip-audit e bandit
+        run: pip install pip-audit bandit[toml]
 
       - name: Escanear dependências por vulnerabilidades conhecidas
         run: pip-audit -r requirements.txt
+
+      - name: Analisar código com bandit
+        run: bandit -r src/ -f json -o bandit-report.json || true
+
+      - name: Exibir relatório do bandit
+        run: bandit -r src/ --format screen

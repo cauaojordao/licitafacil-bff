@@ -30,13 +30,36 @@ class UserService:
     def authenticate_user(self, email: str, password: str) -> dict:
         user = self.user_repository.find_by_email(email)
 
-        if not user or not verify_password(password, user["password_hash"]):
-            logger.warning("Tentativa de login com credenciais inválidas")
+        if not user:
+            logger.warning("Tentativa de login com email não cadastrado")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="E-mail ou senha inválidos",
             )
 
+        if self.user_repository.is_account_locked(user):
+            logger.warning(
+                "Tentativa de login em conta bloqueada",
+                extra_fields={"user_id": user["id"]},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Conta bloqueada temporariamente por excesso de tentativas. "
+                "Tente novamente em alguns minutos.",
+            )
+
+        if not verify_password(password, user["password_hash"]):
+            self.user_repository.increment_failed_attempts(user["id"])
+            logger.warning(
+                "Tentativa de login com credenciais inválidas",
+                extra_fields={"user_id": user["id"]},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="E-mail ou senha inválidos",
+            )
+
+        self.user_repository.reset_failed_attempts(user["id"])
         return user
 
     def get_user_by_id(self, user_id: str) -> dict | None:
