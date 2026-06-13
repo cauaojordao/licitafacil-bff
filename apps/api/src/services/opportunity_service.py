@@ -36,7 +36,7 @@ _UNAUTHENTICATED_COMPATIBILITY = OpportunityCompatibility(
 
 class OpportunityService:
     """Service para gerenciar oportunidades com lógica de compatibilidade.
-    
+
     OTIMIZAÇÃO: Cache do perfil do usuário por instância do service para evitar
     múltiplas queries ao banco durante a mesma requisição.
     """
@@ -49,12 +49,12 @@ class OpportunityService:
         """Busca perfil do usuário com cache para otimizar requisições."""
         if not user_id:
             return None
-        
+
         if user_id not in self._user_profile_cache:
             self._user_profile_cache[user_id] = (
                 await self.opportunity_repo.get_user_profile(user_id)
             )
-        
+
         return self._user_profile_cache[user_id]
 
     async def get_recommended(
@@ -269,7 +269,8 @@ class OpportunityService:
             month: Mês no formato YYYY-MM
 
         Returns:
-            dict com total_new_opportunities (int), top_categories (list) e generated_at (str)
+            dict com total_new_opportunities (int),
+            top_categories (list) e generated_at (str)
         """
         from datetime import UTC, datetime
 

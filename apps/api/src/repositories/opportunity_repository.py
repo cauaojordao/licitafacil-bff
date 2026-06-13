@@ -450,11 +450,11 @@ class OpportunityRepository:
             .select("state_id")
             .eq("user_id", user_id)
         )
-        
+
         user_cnaes_response, user_states_response = await asyncio.gather(
             user_cnaes_task, user_states_task
         )
-        
+
         user_cnae_ids = [row["cnae_id"] for row in user_cnaes_response.data]
         user_states: set[str] = {row["state_id"] for row in user_states_response.data}
 

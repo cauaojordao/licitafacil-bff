@@ -40,7 +40,7 @@ async def test_register_mei_success(
     mock_opencnpj_client.parse_cnaes_from_data.return_value = mock_cnae_data
     mock_user_repository.create_mei.return_value = mock_user_data
     mock_user_repository.find_by_id.return_value = mock_user_data
-    
+
     result = await user_mei_service.register_mei(
         name="João Silva",
         email="joao@example.com",
@@ -49,7 +49,7 @@ async def test_register_mei_success(
         interested_state_siglas=["SP", "RJ"],
         cnae_ids=["4711302"],
     )
-    
+
     assert result["id"] == "user-123-456"
     mock_user_repository.create_mei.assert_called_once()
     mock_cnae_repository.link_user_cnaes.assert_called_once()
@@ -64,7 +64,7 @@ async def test_register_mei_email_already_exists(
 ) -> None:
     """Testa registro com email já cadastrado."""
     mock_user_repository.find_by_email.return_value = mock_user_data
-    
+
     with pytest.raises(HTTPException) as exc_info:
         await user_mei_service.register_mei(
             name="João Silva",
@@ -74,7 +74,7 @@ async def test_register_mei_email_already_exists(
             interested_state_siglas=["SP"],
             cnae_ids=["4711302"],
         )
-    
+
     assert exc_info.value.status_code == 409
 
 
@@ -91,7 +91,7 @@ async def test_register_mei_cnpj_api_error(
     mock_opencnpj_client.get_cnpj_data.side_effect = Exception("API Error")
     mock_user_repository.create_mei.return_value = mock_user_data
     mock_user_repository.find_by_id.return_value = mock_user_data
-    
+
     result = await user_mei_service.register_mei(
         name="João Silva",
         email="joao@example.com",
@@ -100,7 +100,7 @@ async def test_register_mei_cnpj_api_error(
         interested_state_siglas=["SP"],
         cnae_ids=["4711302"],
     )
-    
+
     assert result["id"] == "user-123-456"
     mock_user_repository.create_mei.assert_called_once()
 
@@ -111,9 +111,9 @@ def test_check_email_availability_available(
 ) -> None:
     """Testa verificação de email disponível."""
     mock_user_repository.find_by_email.return_value = None
-    
+
     result = user_mei_service.check_email_availability("teste@example.com")
-    
+
     assert result is True
 
 
@@ -124,7 +124,7 @@ def test_check_email_availability_taken(
 ) -> None:
     """Testa verificação de email já cadastrado."""
     mock_user_repository.find_by_email.return_value = mock_user_data
-    
+
     result = user_mei_service.check_email_availability("joao@example.com")
-    
+
     assert result is False

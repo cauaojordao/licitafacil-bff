@@ -20,7 +20,7 @@ def test_user_creation_success() -> None:
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-    
+
     assert user.id == "user-123"
     assert user.name == "João Silva"
     assert user.email == "joao@example.com"
@@ -36,7 +36,7 @@ def test_user_creation_minimal() -> None:
         email="joao@example.com",
         password_hash="$2b$12$hash",
     )
-    
+
     assert user.id == "user-123"
     assert user.cnpj is None
     assert user.company_name is None
@@ -52,7 +52,7 @@ def test_user_invalid_email() -> None:
             email="email-invalido",
             password_hash="$2b$12$hash",
         )
-    
+
     assert "email" in str(exc_info.value)
 
 
@@ -64,7 +64,7 @@ def test_user_password_hash_excluded() -> None:
         email="joao@example.com",
         password_hash="$2b$12$hash",
     )
-    
+
     user_dict = user.model_dump()
     assert "password_hash" not in user_dict
 
@@ -78,7 +78,7 @@ def test_user_anonymized() -> None:
         password_hash="ANONYMIZED_abc123",
         anonymized_at=datetime.now(),
     )
-    
+
     assert user.anonymized_at is not None
     assert "ANONIMIZADO" in user.name
     assert user.cnpj is None

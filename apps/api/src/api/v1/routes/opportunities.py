@@ -55,13 +55,20 @@ async def get_recommended_opportunities(
 async def get_favorite_opportunities(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
-    month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$", description="Filtro mensal no formato YYYY-MM"),
-    valid: bool | None = Query(None, description="Filtro de validade (true=válidos, false=expirados)"),
+    month: str | None = Query(
+        None,
+        pattern=r"^\d{4}-\d{2}$",
+        description="Filtro mensal no formato YYYY-MM",
+    ),
+    valid: bool | None = Query(
+        None,
+        description="Filtro de validade (true=válidos, false=expirados)",
+    ),
     current_user: User = Depends(get_current_user),
     service: OpportunityService = Depends(get_opportunity_service),
 ) -> OpportunitySearchResponse:
     """Lista editais favoritos do usuário com filtros opcionais.
-    
+
     Args:
         page: Número da página
         page_size: Itens por página
@@ -199,19 +206,23 @@ async def get_opportunity_detail(
 
 @router.get("/stats/monthly", response_model=MonthlyStatsResponse)
 async def get_monthly_stats(
-    month: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Mês no formato YYYY-MM"),
+    month: str = Query(
+        ...,
+        pattern=r"^\d{4}-\d{2}$",
+        description="Mês no formato YYYY-MM",
+    ),
     service: OpportunityService = Depends(get_opportunity_service),
 ) -> MonthlyStatsResponse:
     """Retorna estatísticas mensais de oportunidades.
-    
+
     Args:
         month: Mês no formato YYYY-MM (ex: 2026-06)
-        
+
     Returns:
         Estatísticas com total de novos editais, top 5 categorias e timestamp
     """
     stats = await service.get_monthly_stats(month)
-    
+
     # Converter para schema de resposta
     top_categories = [
         CategoryStatsResponse(
@@ -222,7 +233,7 @@ async def get_monthly_stats(
         )
         for cat in stats["top_categories"]  # type: ignore
     ]
-    
+
     return MonthlyStatsResponse(
         month=month,
         totalNewOpportunities=stats["total_new_opportunities"],  # type: ignore

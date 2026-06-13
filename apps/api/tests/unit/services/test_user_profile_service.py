@@ -36,9 +36,9 @@ def test_get_user_profile(
         {"id": "4712100", "title": "Lojas de conveniência"},
     ]
     mock_user_repository.get_interested_states.return_value = ["SP", "RJ"]
-    
+
     result = user_profile_service.get_user_profile(mock_user)
-    
+
     assert result["name"] == mock_user.name
     assert result["email"] == mock_user.email
     assert result["cnpj"] == mock_user.cnpj
@@ -63,9 +63,9 @@ async def test_update_user_cnpj_success(
     mock_opencnpj_client.parse_cnaes_from_data.return_value = mock_cnae_data
     mock_cnae_repository.get_user_cnaes.return_value = []
     mock_user_repository.get_interested_states.return_value = []
-    
+
     result = await user_profile_service.update_user_cnpj(mock_user, "98765432000100")
-    
+
     assert result["cnpj"] == "98765432000100"
     mock_cnae_repository.upsert_many.assert_called_once()
     mock_user_repository.update_cnpj.assert_called_once()
@@ -79,10 +79,10 @@ async def test_update_user_cnpj_not_found(
 ) -> None:
     """Testa atualização de CNPJ não encontrado."""
     mock_opencnpj_client.get_cnpj_data.return_value = None
-    
+
     with pytest.raises(HTTPException) as exc_info:
         await user_profile_service.update_user_cnpj(mock_user, "00000000000000")
-    
+
     assert exc_info.value.status_code == 404
 
 
@@ -95,14 +95,14 @@ def test_update_user_profile(
     """Testa atualização de perfil do usuário."""
     mock_cnae_repository.get_user_cnaes.return_value = []
     mock_user_repository.get_interested_states.return_value = []
-    
-    result = user_profile_service.update_user_profile(
+
+    user_profile_service.update_user_profile(
         mock_user,
         name="Novo Nome",
         interested_state_siglas=["SP", "MG"],
         cnae_ids=["4711302"],
     )
-    
+
     mock_user_repository.update_profile.assert_called_once()
     mock_user_repository.link_interested_states.assert_called_once()
     mock_cnae_repository.link_user_cnaes.assert_called_once()
@@ -122,9 +122,9 @@ async def test_refresh_user_cnaes_success(
     mock_opencnpj_client.parse_cnaes_from_data.return_value = mock_cnae_data
     mock_cnae_repository.get_user_cnaes.return_value = []
     mock_user_repository.get_interested_states.return_value = []
-    
-    result = await user_profile_service.refresh_user_cnaes(mock_user)
-    
+
+    await user_profile_service.refresh_user_cnaes(mock_user)
+
     mock_cnae_repository.upsert_many.assert_called_once()
     mock_cnae_repository.link_user_cnaes.assert_called_once()
 
@@ -136,10 +136,10 @@ async def test_refresh_user_cnaes_no_cnpj(
 ) -> None:
     """Testa refresh de CNAEs sem CNPJ cadastrado."""
     mock_user.cnpj = None
-    
+
     with pytest.raises(HTTPException) as exc_info:
         await user_profile_service.refresh_user_cnaes(mock_user)
-    
+
     assert exc_info.value.status_code == 400
 
 
@@ -156,9 +156,9 @@ def test_anonymize_user(
         "anonymized_at": "2026-06-02T10:00:00Z",
     }
     mock_user_repository.anonymize_user.return_value = anonymized_data
-    
+
     result = user_profile_service.anonymize_user(mock_user)
-    
+
     assert "ANONIMIZADO" in result["name"]
     assert result["anonymized_at"] is not None
     mock_user_repository.anonymize_user.assert_called_once_with(mock_user.id)

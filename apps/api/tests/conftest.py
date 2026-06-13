@@ -75,7 +75,10 @@ def mock_opportunity_data() -> dict[str, Any]:
 @pytest.fixture
 def mock_token() -> str:
     """Token JWT de mock."""
-    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEyMyIsImV4cCI6OTk5OTk5OTk5OX0.signature"
+    return (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+        "eyJzdWIiOiJ1c2VyLTEyMyIsImV4cCI6OTk5OTk5OTk5OX0.signature"
+    )
 
 
 @pytest.fixture
@@ -138,8 +141,17 @@ def mock_email_sender() -> AsyncMock:
 def mock_cnae_data() -> dict[str, Any]:
     """Dados de mock de CNAEs."""
     return {
-        "primary": {"id": "4711302", "title": "Comércio varejista de mercadorias em geral"},
+        "primary": {
+            "id": "4711302",
+            "title": "Comércio varejista de mercadorias em geral",
+        },
         "secondary": [
-            {"id": "4712100", "title": "Comércio varejista de mercadorias em lojas de conveniência"},
+            {
+                "id": "4712100",
+                "title": (
+                    "Comércio varejista de mercadorias "
+                    "em lojas de conveniência"
+                ),
+            },
         ],
     }

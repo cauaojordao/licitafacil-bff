@@ -1,6 +1,6 @@
 """Testes de integração para rotas de localidades (estados e cidades)."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,9 +24,9 @@ async def test_get_states_endpoint(
         {"id": "35", "sigla": "SP", "nome": "São Paulo"},
         {"id": "33", "sigla": "RJ", "nome": "Rio de Janeiro"},
     ]
-    
+
     response = client.get("/api/v1/locations/states")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 2
@@ -43,9 +43,9 @@ async def test_get_cities_by_state_endpoint(
         {"id": "3550308", "nome": "São Paulo"},
         {"id": "3509502", "nome": "Campinas"},
     ]
-    
+
     response = client.get("/api/v1/locations/states/SP/cities")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 2
@@ -59,9 +59,9 @@ async def test_get_states_endpoint_error(
 ) -> None:
     """Testa endpoint de estados com erro na API do IBGE."""
     mock_get_states.side_effect = Exception("Erro na API do IBGE")
-    
+
     response = client.get("/api/v1/locations/states")
-    
+
     assert response.status_code == 500
 
 
@@ -72,9 +72,9 @@ async def test_get_cities_endpoint_empty(
 ) -> None:
     """Testa endpoint de cidades sem resultados."""
     mock_get_cities.return_value = []
-    
+
     response = client.get("/api/v1/locations/states/XX/cities")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 0

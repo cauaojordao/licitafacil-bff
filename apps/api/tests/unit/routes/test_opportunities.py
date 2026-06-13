@@ -35,12 +35,12 @@ def test_list_opportunities_endpoint(
             "total_pages": 1,
         },
     }
-    
+
     response = client.get(
         "/api/v1/opportunities",
         headers={"Authorization": "Bearer fake_token"},
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "opportunities" in data
@@ -67,12 +67,12 @@ def test_list_opportunities_with_filters(
             "total_pages": 0,
         },
     }
-    
+
     response = client.get(
         "/api/v1/opportunities?state=SP&modality=PREGAO_ELETRONICO&page=1&page_size=10",
         headers={"Authorization": "Bearer fake_token"},
     )
-    
+
     assert response.status_code == 200
 
 
@@ -90,7 +90,7 @@ def test_list_opportunities_by_compatibility(
     opp_with_score = mock_opportunity_data.copy()
     opp_with_score["compatibility_score"] = 85
     opp_with_score["compatibility_label"] = "ALTA"
-    
+
     mock_list.return_value = {
         "opportunities": [opp_with_score],
         "pagination": {
@@ -100,12 +100,12 @@ def test_list_opportunities_by_compatibility(
             "total_pages": 1,
         },
     }
-    
+
     response = client.get(
         "/api/v1/opportunities/by-compatibility",
         headers={"Authorization": "Bearer fake_token"},
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data["opportunities"]) == 1
@@ -124,12 +124,12 @@ def test_get_opportunity_detail(
     """Testa endpoint de detalhes de oportunidade."""
     mock_get_user.return_value = mock_user
     mock_get.return_value = mock_opportunity_data
-    
+
     response = client.get(
         "/api/v1/opportunities/opp-123",
         headers={"Authorization": "Bearer fake_token"},
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "opp-123"
@@ -138,5 +138,5 @@ def test_get_opportunity_detail(
 def test_list_opportunities_unauthorized(client: TestClient) -> None:
     """Testa endpoint de oportunidades sem autenticação."""
     response = client.get("/api/v1/opportunities")
-    
+
     assert response.status_code == 403

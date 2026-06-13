@@ -29,7 +29,7 @@ async def test_register_mei_endpoint_success(
     mock_register.return_value = mock_user_data
     mock_access_token.return_value = "access_token"
     mock_refresh_token.return_value = "refresh_token"
-    
+
     response = client.post(
         "/api/v1/users/register",
         json={
@@ -41,7 +41,7 @@ async def test_register_mei_endpoint_success(
             "cnae_ids": ["4711302"],
         },
     )
-    
+
     assert response.status_code == 201
     data = response.json()
     assert "access_token" in data
@@ -61,7 +61,7 @@ def test_register_mei_endpoint_password_too_short(client: TestClient) -> None:
             "cnae_ids": ["4711302"],
         },
     )
-    
+
     assert response.status_code == 422
 
 
@@ -72,9 +72,9 @@ def test_check_email_endpoint_available(
 ) -> None:
     """Testa endpoint de verificação de email disponível."""
     mock_check.return_value = True
-    
+
     response = client.get("/api/v1/users/check-email?email=teste@example.com")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["available"] is True
@@ -99,12 +99,12 @@ def test_get_profile_endpoint(
         "secondary_cnaes": [],
         "interested_states": [{"sigla": "SP"}],
     }
-    
+
     response = client.get(
         "/api/v1/users/me",
         headers={"Authorization": "Bearer fake_token"},
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "João Silva"
@@ -129,13 +129,13 @@ def test_update_profile_endpoint(
         "secondary_cnaes": [],
         "interested_states": [],
     }
-    
+
     response = client.patch(
         "/api/v1/users/me",
         headers={"Authorization": "Bearer fake_token"},
         json={"name": "Novo Nome"},
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Novo Nome"
@@ -160,13 +160,13 @@ async def test_update_cnpj_endpoint(
         "secondary_cnaes": [],
         "interested_states": [],
     }
-    
+
     response = client.patch(
         "/api/v1/users/me/cnpj",
         headers={"Authorization": "Bearer fake_token"},
         json={"cnpj": "98765432000100"},
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["cnpj"] == "98765432000100"
@@ -191,12 +191,12 @@ async def test_refresh_cnaes_endpoint(
         "secondary_cnaes": [],
         "interested_states": [],
     }
-    
+
     response = client.post(
         "/api/v1/users/me/refresh-cnaes",
         headers={"Authorization": "Bearer fake_token"},
     )
-    
+
     assert response.status_code == 200
 
 
@@ -216,12 +216,12 @@ def test_anonymize_user_endpoint(
         "email": "anonimizado_abc123@example.com",
         "anonymized_at": "2026-06-02T10:00:00Z",
     }
-    
+
     response = client.delete(
         "/api/v1/users/me",
         headers={"Authorization": "Bearer fake_token"},
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "message" in data
@@ -231,5 +231,5 @@ def test_anonymize_user_endpoint(
 def test_profile_endpoint_unauthorized(client: TestClient) -> None:
     """Testa endpoint de perfil sem autenticação."""
     response = client.get("/api/v1/users/me")
-    
+
     assert response.status_code == 403
