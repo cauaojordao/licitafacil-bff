@@ -12,7 +12,7 @@ class PNCPClient:
     Cliente para extração de dados da API PNCP.
     """
 
-    def __init__(self, base_url: str, timeout: int = 30) -> None:
+    def __init__(self, base_url: str, timeout: int = 90) -> None:
         """
         Inicializa o cliente PNCP.
 

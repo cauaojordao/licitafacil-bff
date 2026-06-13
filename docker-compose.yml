@@ -94,6 +94,8 @@ services:
       - ./apps/api/.env
     networks:
       - pncp-network
+    volumes:
+      - iceberg_warehouse:/tmp/iceberg-warehouse
     restart: unless-stopped
 
   prefect-server:
@@ -123,6 +125,7 @@ services:
       MONGO_URI: mongodb://admin:admin123@mongodb:27017
     volumes:
       - .:/app
+      - iceberg_warehouse:/tmp/iceberg-warehouse
     working_dir: /app
     command: python orchestrate_prefect.py serve
     networks:
@@ -134,3 +137,4 @@ networks:
 
 volumes:
   mongodb_data:
+  iceberg_warehouse:

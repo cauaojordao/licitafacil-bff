@@ -161,6 +161,11 @@ class StreamingService:
 
         enriched_documents = list(unique_docs)
 
+        enriched_documents = [
+            self._add_analytics_fields(doc)
+            for doc in enriched_documents
+        ]
+
         postgres_count = self.silver_repository.upsert_many(enriched_documents)
 
         print(f"💾 Persistidos no PostgreSQL: {postgres_count} registros", flush=True)
@@ -228,3 +233,15 @@ class StreamingService:
 
     def _normalize_for_spark(self, doc):
         pass
+
+    def _add_analytics_fields(self, doc: dict) -> dict:
+        unidade = doc.get("unidade_orgao") or {}
+        orgao = doc.get("orgao_entidade") or {}
+
+        doc["uf"] = unidade.get("uf_sigla")
+        doc["municipio"] = unidade.get("municipio_nome")
+        doc["nome_unidade"] = unidade.get("nome_unidade")
+        doc["orgao_razao_social"] = orgao.get("razao_social")
+        doc["orgao_cnpj"] = orgao.get("cnpj")
+
+        return doc

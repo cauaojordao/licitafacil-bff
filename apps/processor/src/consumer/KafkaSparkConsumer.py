@@ -1,10 +1,10 @@
 """
 Consumer Kafka para Spark Streaming.
-Consome mensagens da camada Bronze.
+Consome mensagens da camada Bronze e normaliza campos nested para snake_case.
 """
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, from_json
+from pyspark.sql.functions import col, from_json, struct
 from pyspark.sql.types import (
     ArrayType,
     BooleanType,
@@ -16,10 +16,6 @@ from pyspark.sql.types import (
 
 
 class KafkaSparkConsumer:
-    """
-    Consumer Kafka integrado com Spark Streaming.
-    """
-
     def __init__(self, spark: SparkSession, kafka_bootstrap_servers: str, topic: str):
         self.spark = spark
         self.kafka_bootstrap_servers = kafka_bootstrap_servers
@@ -27,9 +23,6 @@ class KafkaSparkConsumer:
         self.schema = self._define_schema()
 
     def _define_schema(self) -> StructType:
-        """
-        Define o schema completo dos dados consumidos da camada Bronze.
-        """
         return StructType(
             [
                 StructField("numero_controle_pncp", StringType(), True),
@@ -55,7 +48,9 @@ class KafkaSparkConsumer:
                     "orgao_entidade",
                     StructType(
                         [
-                            StructField("razao_social", StringType(), True),
+                            StructField("razaoSocial", StringType(), True),
+                            StructField("poderId", StringType(), True),
+                            StructField("esferaId", StringType(), True),
                             StructField("cnpj", StringType(), True),
                         ]
                     ),
@@ -66,9 +61,12 @@ class KafkaSparkConsumer:
                     "unidade_orgao",
                     StructType(
                         [
-                            StructField("nome_unidade", StringType(), True),
-                            StructField("uf_sigla", StringType(), True),
-                            StructField("municipio_nome", StringType(), True),
+                            StructField("ufNome", StringType(), True),
+                            StructField("codigoUnidade", StringType(), True),
+                            StructField("nomeUnidade", StringType(), True),
+                            StructField("ufSigla", StringType(), True),
+                            StructField("municipioNome", StringType(), True),
+                            StructField("codigoIbge", StringType(), True),
                         ]
                     ),
                     True,
@@ -76,9 +74,7 @@ class KafkaSparkConsumer:
 
                 StructField("link_sistema_origem", StringType(), True),
                 StructField("link_processo_eletronico", StringType(), True),
-
                 StructField("criterio_julgamento_nome", StringType(), True),
-
                 StructField("informacao_complementar", StringType(), True),
                 StructField("resumo_simplificado", StringType(), True),
 
@@ -107,7 +103,6 @@ class KafkaSparkConsumer:
 
                 StructField("srp", BooleanType(), True),
                 StructField("usuario_nome", StringType(), True),
-
                 StructField("fontes_orcamentarias", ArrayType(StringType()), True),
 
                 StructField("processed_at", StringType(), True),
@@ -126,8 +121,32 @@ class KafkaSparkConsumer:
             .load()
         )
 
-        return (
+        parsed = (
             raw_stream
             .select(from_json(col("value").cast("string"), self.schema).alias("data"))
             .select("data.*")
+        )
+
+        return (
+            parsed
+            .withColumn(
+                "orgao_entidade",
+                struct(
+                    col("orgao_entidade.razaoSocial").alias("razao_social"),
+                    col("orgao_entidade.cnpj").alias("cnpj"),
+                    col("orgao_entidade.poderId").alias("poder_id"),
+                    col("orgao_entidade.esferaId").alias("esfera_id"),
+                ),
+            )
+            .withColumn(
+                "unidade_orgao",
+                struct(
+                    col("unidade_orgao.nomeUnidade").alias("nome_unidade"),
+                    col("unidade_orgao.ufSigla").alias("uf_sigla"),
+                    col("unidade_orgao.ufNome").alias("uf_nome"),
+                    col("unidade_orgao.municipioNome").alias("municipio_nome"),
+                    col("unidade_orgao.codigoUnidade").alias("codigo_unidade"),
+                    col("unidade_orgao.codigoIbge").alias("codigo_ibge"),
+                ),
+            )
         )
