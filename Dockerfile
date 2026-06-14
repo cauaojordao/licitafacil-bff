@@ -1,19 +1,28 @@
-FROM python:3.11.12-slim
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
-# Instala dependências antes de copiar o código fonte
-# para aproveitar o cache de camadas do Docker
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y \
+    openjdk-17-jdk \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copia apenas o necessário para execução
-COPY src/ src/
-COPY main.py .
-COPY orchestrate_prefect.py .
+COPY pyproject.toml .
+COPY apps/ingestion/pyproject.toml apps/ingestion/pyproject.toml
+COPY apps/processor/pyproject.toml apps/processor/pyproject.toml
+COPY apps/maintenance/pyproject.toml apps/maintenance/pyproject.toml
 
-# Executa como usuário não-root (segurança)
-RUN adduser --disabled-password --gecos "" appuser
-USER appuser
+RUN pip install --no-cache-dir \
+    prefect \
+    pyspark==3.5.1 \
+    pymongo \
+    kafka-python \
+    python-dotenv \
+    requests \
+    supabase \
+    google-generativeai
 
-CMD ["python", "orchestrate_prefect.py"]
+COPY . .
+
+ENV PYTHONPATH=/app
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
