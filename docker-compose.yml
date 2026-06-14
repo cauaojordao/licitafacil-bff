@@ -92,6 +92,9 @@ services:
       - "8000:8000"
     env_file:
       - ./apps/api/.env
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     networks:
       - pncp-network
     volumes:
