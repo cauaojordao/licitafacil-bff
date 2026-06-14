@@ -1,6 +1,6 @@
 """Service para lógica de negócio de oportunidades."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from src.core.logging import get_logger, set_user_id
@@ -300,7 +300,7 @@ class OpportunityService:
         result: dict[str, int | list[dict] | str] = {
             "total_new_opportunities": stats["total_new_opportunities"],
             "top_categories": stats["top_categories"],
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
         top_categories = result["top_categories"]
@@ -309,7 +309,8 @@ class OpportunityService:
             extra_fields={
                 "month": month,
                 "total": result["total_new_opportunities"],
-                "categories_count": len(top_categories) if isinstance(top_categories, list) else 0,
+                "categories_count": len(top_categories) if isinstance(top_categories,
+                                                                      list) else 0,
             },
         )
 
@@ -396,11 +397,11 @@ class OpportunityService:
     def _score_urgency(
         self, opportunity: Opportunity, score: float, reasons: list[str]
     ) -> tuple[float, list[str]]:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         closing = opportunity.closing_date
 
         if closing.tzinfo is None:
-            closing = closing.replace(tzinfo=timezone.utc)
+            closing = closing.replace(tzinfo=UTC)
 
         days = max(0, (closing - now).days)
 
@@ -427,11 +428,15 @@ class OpportunityService:
 
     def _calculate_days_remaining(self, opportunity: Opportunity) -> None:
         """Calcula dias restantes até o fechamento da oportunidade."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         closing = opportunity.closing_date
 
         if closing.tzinfo is None:
-            closing = closing.replace(tzinfo=timezone.utc)
+            closing = closing.replace(tzinfo=UTC)
+
+
+        opportunity.is_expired = closing < now
+
 
         delta = (closing - now).days
         opportunity.days_remaining = max(0, delta)

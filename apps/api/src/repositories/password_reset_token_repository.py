@@ -1,7 +1,7 @@
 """Repository para gerenciamento de códigos de reset de senha."""
 
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from supabase import Client
 
@@ -73,7 +73,7 @@ class PasswordResetTokenRepository:
             self.db.table(self.table)
             .update(
                 {
-                    "verified_at": datetime.now(timezone.utc).isoformat(),
+                    "verified_at": datetime.now(UTC).isoformat(),
                     "token": reset_token,
                 }
             )
@@ -99,7 +99,7 @@ class PasswordResetTokenRepository:
             return False
 
         expires_at = datetime.fromisoformat(code_data["expires_at"])
-        return datetime.now(timezone.utc) <= expires_at
+        return datetime.now(UTC) <= expires_at
 
     def is_token_valid(self, token_data: dict) -> bool:
         if not token_data:
@@ -109,4 +109,4 @@ class PasswordResetTokenRepository:
             return False
 
         expires_at = datetime.fromisoformat(token_data["expires_at"])
-        return datetime.now(timezone.utc) <= expires_at
+        return datetime.now(UTC) <= expires_at

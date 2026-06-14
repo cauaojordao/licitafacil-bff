@@ -1,6 +1,6 @@
 """Service para gerenciamento de tokens JWT."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from jose import jwt
 
@@ -19,7 +19,7 @@ class TokenService:
 
     def _create_token(self, data: dict, expires_delta: timedelta) -> str:
         payload = data.copy()
-        payload["exp"] = datetime.now(timezone.utc) + expires_delta
+        payload["exp"] = datetime.now(UTC) + expires_delta
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
 
     def create_access_token(self, user_id: str) -> str:

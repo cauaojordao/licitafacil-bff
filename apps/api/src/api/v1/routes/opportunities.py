@@ -223,22 +223,22 @@ async def get_monthly_stats(
     """
     stats = await service.get_monthly_stats(month)
 
-    # Converter para schema de resposta
+
     top_categories = [
         CategoryStatsResponse(
-            id=cat["id"],  # type: ignore
-            name=cat["name"],  # type: ignore
-            slug=cat["slug"],  # type: ignore
-            count=cat["count"],  # type: ignore
+            id=cat["id"],
+            name=cat["name"],
+            slug=cat["slug"],
+            count=cat["count"],
         )
-        for cat in stats["top_categories"]  # type: ignore
+        for cat in stats["top_categories"]
     ]
 
     return MonthlyStatsResponse(
         month=month,
-        totalNewOpportunities=stats["total_new_opportunities"],  # type: ignore
+        totalNewOpportunities=stats["total_new_opportunities"],
         topCategories=top_categories,
-        generatedAt=stats["generated_at"],  # type: ignore
+        generatedAt=stats["generated_at"],
     )
 
 
@@ -260,7 +260,9 @@ def _opp_to_response(opp: Opportunity) -> OpportunityResponse:
         location=location,
         description=opp.description or opp.title,
         estimatedValue=opp.estimated_value,
+        closingDate=opp.closing_date.isoformat(),
         daysRemaining=opp.days_remaining or 0,
+        isExpired=opp.is_expired or False,
         compatibilityLabel=compatibility_label,
         isFavorite=opp.is_favorite,
     )
@@ -298,6 +300,7 @@ def _opp_to_detail_response(opp: Opportunity) -> OpportunityDetailResponse:
         description=opp.description or opp.title,
         estimatedValue=opp.estimated_value,
         daysRemaining=opp.days_remaining or 0,
+        isExpired=opp.is_expired or False,
         compatibilityLabel=compatibility.label,
         isFavorite=opp.is_favorite,
         pncpId=opp.pncp_id,

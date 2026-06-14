@@ -1,7 +1,7 @@
 """Repository para operações com oportunidades/editais."""
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -273,9 +273,9 @@ class OpportunityRepository:
 
 
         if valid is not None:
-            from datetime import datetime, timezone
+            from datetime import datetime
 
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             if valid:
 
                 query = query.gte("closing_date", now)
