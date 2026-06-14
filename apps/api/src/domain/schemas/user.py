@@ -2,6 +2,9 @@
 
 from pydantic import BaseModel, Field, field_validator
 
+from src.utils.cnpj import clean_cnpj as _clean_cnpj
+from src.utils.password_validator import validate_password_strength
+
 
 class CNAEResponse(BaseModel):
     """Schema de resposta com dados de um CNAE."""
@@ -26,7 +29,6 @@ class StateResponse(BaseModel):
     sigla: str
     nome: str
 
-
 class RegisterUserRequest(BaseModel):
     """Schema para requisição de registro completo de MEI."""
 
@@ -34,36 +36,24 @@ class RegisterUserRequest(BaseModel):
     email: str
     password: str
     cnpj: str
-    interested_state_ids: list[str]
+    interested_state_siglas: list[str]
     cnae_ids: list[str]
 
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("A senha deve ter pelo menos 8 caracteres")
+        validate_password_strength(v)
         return v
 
     @field_validator("cnpj")
     @classmethod
     def validate_cnpj(cls, v: str) -> str:
-        # Remove formatação (pontos, barras, hífens)
-        cnpj = v.replace(".", "").replace("/", "").replace("-", "").strip().upper()
-        if len(cnpj) != 14:
-            raise ValueError("CNPJ deve conter exatamente 14 caracteres")
-        return cnpj
-
-    @field_validator("interested_state_ids")
-    @classmethod
-    def validate_states(cls, v: list[str]) -> list[str]:
-        if not v or len(v) == 0:
-            raise ValueError("Selecione pelo menos um estado de interesse")
-        return v
+        return _clean_cnpj(v)
 
     @field_validator("cnae_ids")
     @classmethod
     def validate_cnaes(cls, v: list[str]) -> list[str]:
-        if not v or len(v) == 0:
+        if not v:
             raise ValueError("Selecione pelo menos um CNAE")
         return v
 
@@ -81,15 +71,22 @@ class CNAEDetailResponse(BaseModel):
     description: str
 
 
+class InterestedStateResponse(BaseModel):
+    """Schema de resposta com estado de interesse do usuário."""
+
+    sigla: str
+
+
 class UserProfileResponse(BaseModel):
     """Schema de resposta com perfil completo do usuário."""
 
     name: str
-    company_name: str | None = None  # Nome da empresa (razão social)
+    company_name: str | None = None
     cnpj: str | None = None
     email: str
     primary_cnae: CNAEDetailResponse | None = None
     secondary_cnaes: list[CNAEDetailResponse] = Field(default_factory=list)
+    interested_states: list[InterestedStateResponse] = Field(default_factory=list)
 
 
 class UpdateUserCNPJRequest(BaseModel):
@@ -100,9 +97,40 @@ class UpdateUserCNPJRequest(BaseModel):
     @field_validator("cnpj")
     @classmethod
     def validate_cnpj(cls, v: str) -> str:
-        """Valida e formata o CNPJ."""
-        # Remove formatação (pontos, barras, hífens)
-        cnpj = v.replace(".", "").replace("/", "").replace("-", "").strip().upper()
-        if len(cnpj) != 14:
-            raise ValueError("CNPJ deve conter exatamente 14 caracteres")
-        return cnpj
+        return _clean_cnpj(v)
+
+
+class UpdateUserProfileRequest(BaseModel):
+    """Schema para requisição de atualização de perfil do usuário."""
+
+    name: str | None = None
+    interested_state_siglas: list[str] | None = None
+    cnae_ids: list[str] | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str | None) -> str | None:
+        if v is not None and len(v.strip()) == 0:
+            raise ValueError("Nome não pode ser vazio")
+        return v
+
+    @field_validator("cnae_ids")
+    @classmethod
+    def validate_cnaes(cls, v: list[str] | None) -> list[str] | None:
+        if v is not None and len(v) == 0:
+            raise ValueError("Selecione pelo menos um CNAE")
+        return v
+
+
+class RefreshCNAEsRequest(BaseModel):
+    """Schema para requisição de refresh de CNAEs via Receita Federal."""
+
+    pass
+
+
+class AnonymizeUserResponse(BaseModel):
+    """Schema de resposta para anonimização de usuário."""
+
+    message: str
+    anonymized_at: str
+

@@ -30,8 +30,9 @@ class StructuredFormatter(logging.Formatter):
         if user_id := user_id_ctx.get():
             log_data["user_id"] = user_id
 
-        if hasattr(record, "extra_fields"):
-            log_data.update(record.extra_fields)
+        extra_fields = getattr(record, "extra_fields", None)
+        if extra_fields:
+            log_data.update(extra_fields)
 
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)

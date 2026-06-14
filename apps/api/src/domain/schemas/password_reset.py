@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, EmailStr, field_validator
 
+from src.utils.password_validator import validate_password_strength
+
 
 class ForgotPasswordRequest(BaseModel):
     """Schema para requisição de esqueci minha senha."""
@@ -39,8 +41,7 @@ class ResetPasswordRequest(BaseModel):
     @field_validator("new_password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("A senha deve ter pelo menos 8 caracteres")
+        validate_password_strength(v)
         return v
 
 

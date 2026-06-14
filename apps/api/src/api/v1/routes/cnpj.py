@@ -1,8 +1,6 @@
 """Rotas para consulta de CNPJ e CNAEs."""
 
-from typing import cast
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.core.dependencies import get_opencnpj_client
 from src.domain.schemas.user import CNAEResponse, CNPJCNAEsResponse
@@ -12,19 +10,20 @@ router = APIRouter()
 
 
 @router.get(
-    "/{cnpj}/cnaes",
+    "/cnaes",
     response_model=CNPJCNAEsResponse,
     summary="Consultar CNAEs de um CNPJ",
-    description="Busca lista de CNAEs de um CNPJ via OpenCNPJ.",
+    description="Busca lista de CNAEs de um CNPJ via OpenCNPJ (com ou sem formatação).",
 )
 async def get_cnpj_cnaes(
-    cnpj: str,
+    cnpj: str = Query(
+        ...,
+        description="CNPJ com ou sem formatação",
+    ),
     client: OpenCNPJClient = Depends(get_opencnpj_client),
 ) -> CNPJCNAEsResponse:
-    cnpj_limpo = client.clean_cnpj(cnpj)
-
     try:
-        data = await client.get_cnpj_data(cnpj_limpo)
+        data = await client.get_cnpj_data(cnpj)
 
         if not data:
             raise HTTPException(
@@ -32,26 +31,21 @@ async def get_cnpj_cnaes(
                 detail="CNPJ não encontrado",
             )
 
+        cnpj_limpo = client.clean_cnpj(cnpj)
         cnaes_data = client.parse_cnaes_from_data(data)
 
         razao_social = (
             data.get("company", {}).get("name") if data.get("company") else None
         )
 
-        primary_cnae_dict = cnaes_data.get("primary")
-        secondary_cnaes_data = cast(
-            list[dict[str, str]], cnaes_data.get("secondary", [])
-        )
+        primary_cnae = cnaes_data["primary"]
+        secondary_cnaes = cnaes_data["secondary"]
 
         return CNPJCNAEsResponse(
             cnpj=client.format_cnpj(cnpj_limpo),
             razao_social=razao_social,
-            primary_cnae=CNAEResponse(
-                **cast(dict[str, str], primary_cnae_dict)
-            )
-            if primary_cnae_dict
-            else None,
-            secondary_cnaes=[CNAEResponse(**cnae) for cnae in secondary_cnaes_data],
+            primary_cnae=CNAEResponse(**primary_cnae) if primary_cnae else None,
+            secondary_cnaes=[CNAEResponse(**cnae) for cnae in secondary_cnaes],
         )
 
     except ValueError as e:

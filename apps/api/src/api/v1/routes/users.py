@@ -11,9 +11,11 @@ from src.core.dependencies import (
 from src.domain.entities.user import User
 from src.domain.schemas.auth import TokenResponse
 from src.domain.schemas.user import (
+    AnonymizeUserResponse,
     CheckEmailResponse,
     RegisterUserRequest,
     UpdateUserCNPJRequest,
+    UpdateUserProfileRequest,
     UserProfileResponse,
 )
 from src.services.token_service import TokenService
@@ -48,12 +50,12 @@ async def register_mei(
         HTTPException 409: Se e-mail ou CNPJ já cadastrado
         HTTPException 422: Se dados inválidos
     """
-    user = user_mei_service.register_mei(
+    user = await user_mei_service.register_mei(
         name=body.name,
         email=body.email,
         password=body.password,
         cnpj=body.cnpj,
-        interested_state_ids=body.interested_state_ids,
+        interested_state_siglas=body.interested_state_siglas,
         cnae_ids=body.cnae_ids,
     )
 
@@ -152,3 +154,83 @@ async def update_user_cnpj(
     """
     profile = await profile_service.update_user_cnpj(current_user, body.cnpj)
     return UserProfileResponse(**profile)
+
+
+@router.patch(
+    "/me",
+    response_model=UserProfileResponse,
+    summary="Atualizar perfil do usuário",
+    description="Atualiza dados do perfil",
+)
+async def update_user_profile(
+    body: UpdateUserProfileRequest,
+    current_user: User = Depends(get_current_user),
+    profile_service: UserProfileService = Depends(get_user_profile_service),
+) -> UserProfileResponse:
+    """Atualiza perfil do usuário autenticado.
+
+    Permite atualizar:
+    - Nome
+    - Estados de interesse
+    - CNAEs selecionados
+
+    Compliance LGPD Art. 18 - Direito de correção de dados.
+    """
+    profile = profile_service.update_user_profile(
+        current_user,
+        name=body.name,
+        interested_state_siglas=body.interested_state_siglas,
+        cnae_ids=body.cnae_ids,
+    )
+    return UserProfileResponse(**profile)
+
+
+@router.post(
+    "/me/refresh-cnaes",
+    response_model=UserProfileResponse,
+    summary="Sincronizar CNAEs com Receita Federal",
+    description="Reexecuta consulta na Receita Federal para atualizar CNAEs do usuário",
+)
+async def refresh_user_cnaes(
+    current_user: User = Depends(get_current_user),
+    profile_service: UserProfileService = Depends(get_user_profile_service),
+) -> UserProfileResponse:
+    """Sincroniza CNAEs do usuário com dados atuais da Receita Federal.
+
+    Busca CNAEs via API da OpenCNPJ e atualiza automaticamente.
+    """
+    profile = await profile_service.refresh_user_cnaes(current_user)
+    return UserProfileResponse(**profile)
+
+
+@router.delete(
+    "/me",
+    response_model=AnonymizeUserResponse,
+    summary="Anonimizar conta do usuário",
+    description="Anonimiza dados pessoais do usuário em conformidade com LGPD.",
+)
+async def anonymize_user(
+    current_user: User = Depends(get_current_user),
+    profile_service: UserProfileService = Depends(get_user_profile_service),
+) -> AnonymizeUserResponse:
+    """Anonimiza usuário em conformidade com LGPD Art. 18.
+
+    Substitui dados identificáveis por valores irreversíveis:
+    - Nome → ANONIMIZADO_[hash]
+    - Email → anonimizado_[hash]@localhost
+    - CNPJ → NULL
+    - Senha → Hash irreversível
+
+    Remove vínculos com estados e CNAEs.
+    Mantém integridade de logs e auditoria sem reter dados pessoais.
+
+    Operação irreversível.
+    """
+    anonymized_user = profile_service.anonymize_user(current_user)
+
+    return AnonymizeUserResponse(
+        message="Conta anonimizada com sucesso. Dados pessoais foram removidos de forma"
+                " irreversível.",
+        anonymized_at=anonymized_user["anonymized_at"],
+    )
+

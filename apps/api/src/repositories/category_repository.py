@@ -30,7 +30,6 @@ class CategoryRepository:
     async def find_by_parent_id(self, parent_id: str | None) -> list[Category]:
         """Retorna categorias filhas de uma categoria pai."""
         if parent_id is None:
-            # Retorna categorias raiz (sem parent)
             response = (
                 self.supabase.table("categories")
                 .select("*")

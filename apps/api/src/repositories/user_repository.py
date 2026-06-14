@@ -1,6 +1,6 @@
 """Repository para gerenciamento de usuários."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from supabase import Client
 
@@ -61,6 +61,7 @@ class UserRepository(BaseRepository):
         email: str,
         password_hash: str,
         cnpj: str,
+        company_name: str | None = None,
     ) -> dict:
         """
         Cria um novo usuário MEI (sem marcar como completo ainda).
@@ -70,30 +71,35 @@ class UserRepository(BaseRepository):
             email: E-mail do usuário
             password_hash: Hash da senha
             cnpj: CNPJ alfanumérico do MEI (14 caracteres)
+            company_name: Razão social obtida da Receita Federal
 
         Returns:
             Dados do usuário criado
         """
-        return self.create(
-            {
-                "name": name,
-                "email": email,
-                "password_hash": password_hash,
-                "cnpj": cnpj,
-                "registration_complete": False,
-            }
-        )
+        data: dict = {
+            "name": name,
+            "email": email,
+            "password_hash": password_hash,
+            "cnpj": cnpj,
+            "registration_complete": False,
+        }
+        if company_name is not None:
+            data["company_name"] = company_name
+        return self.create(data)
 
     def link_interested_states(self, user_id: str, state_ids: list[str]) -> None:
         if not state_ids:
             return
+
+        # Deduplica para evitar violação de PK
+        unique_state_ids = list(dict.fromkeys(state_ids))
 
         self.supabase.table("user_interested_states").delete().eq(
             "user_id", user_id
         ).execute()
 
         user_states = [
-            {"user_id": user_id, "state_id": state_id} for state_id in state_ids
+            {"user_id": user_id, "state_id": state_id} for state_id in unique_state_ids
         ]
         self.supabase.table("user_interested_states").insert(user_states).execute()
 
@@ -138,3 +144,75 @@ class UserRepository(BaseRepository):
         if company_name is not None:
             data["company_name"] = company_name
         return self.update(user_id, data)
+
+    def update_profile(self, user_id: str, name: str | None = None) -> dict:
+        """Atualiza campos do perfil do usuário."""
+        data: dict = {}
+        if name is not None:
+            data["name"] = name
+        if not data:
+            user = self.find_by_id(user_id)
+            if not user:
+                raise RuntimeError("Usuário não encontrado")
+            return user
+        return self.update(user_id, data)
+
+    def anonymize_user(self, user_id: str) -> dict:
+        """Anonimiza usuário substituindo dados pessoais por valores irreversíveis.
+
+        Compliance LGPD Art. 18 - Direito de exclusão de dados pessoais.
+        Mantém integridade de auditoria sem reter dados identificáveis.
+        """
+        import hashlib
+
+        timestamp = datetime.now(UTC).isoformat()
+        hash_suffix = hashlib.sha256(f"{user_id}{timestamp}".encode()).hexdigest()[:8]
+
+        anonymized_data = {
+            "name": f"ANONIMIZADO_{hash_suffix}",
+            "email": f"anonimizado_{hash_suffix}@licitafacil",
+            "cnpj": None,
+            "company_name": None,
+            "password_hash": f"ANONYMIZED_{hash_suffix}",
+            "anonymized_at": timestamp,
+        }
+
+        self.supabase.table("user_interested_states").delete().eq(
+            "user_id", user_id
+        ).execute()
+
+        self.supabase.table("user_cnaes").delete().eq("user_id", user_id).execute()
+
+        return self.update(user_id, anonymized_data)
+
+    def is_account_locked(self, user: dict) -> bool:
+        """Verifica se a conta está bloqueada por excesso de tentativas."""
+        if not user.get("locked_until"):
+            return False
+        locked_until = datetime.fromisoformat(user["locked_until"])
+        return datetime.now(UTC) < locked_until
+
+    def increment_failed_attempts(self, user_id: str) -> dict:
+        """Incrementa contador de tentativas falhadas e bloqueia após limite."""
+        user = self.find_by_id(user_id)
+        if not user:
+            raise RuntimeError("Usuário não encontrado")
+
+        failed_attempts = user.get("failed_login_attempts", 0) + 1
+        data: dict = {"failed_login_attempts": failed_attempts}
+
+        if failed_attempts >= 10:
+            lock_duration_minutes = 5
+            locked_until = (
+                datetime.now(UTC) + timedelta(minutes=lock_duration_minutes)
+            ).isoformat()
+            data["locked_until"] = locked_until
+
+        return self.update(user_id, data)
+
+    def reset_failed_attempts(self, user_id: str) -> dict:
+        """Reseta contador de tentativas falhadas após login bem-sucedido."""
+        return self.update(
+            user_id, {"failed_login_attempts": 0, "locked_until": None}
+        )
+

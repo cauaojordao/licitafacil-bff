@@ -1,7 +1,7 @@
 """Repository para operações com oportunidades/editais."""
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -190,66 +190,51 @@ class OpportunityRepository:
     async def find_recommended_for_user(
         self,
         user_id: str,
-        page: int = 1,
-        page_size: int = 20,
-    ) -> tuple[list[Opportunity], int]:
-        page, page_size, offset = self._normalize_pagination(page, page_size)
+        limit: int = 1000,
+    ) -> list[Opportunity]:
+        """Busca todas as oportunidades abertas para cálculo de recomendação.
 
-        user_cnaes_response = await self._execute(
-            self.supabase.table("user_cnaes").select("cnae_id").eq("user_id", user_id)
-        )
-        user_cnae_ids = [row["cnae_id"] for row in user_cnaes_response.data]
-        if not user_cnae_ids:
-            return [], 0
+        Retorna um número limitado de oportunidades ordenadas por data de fechamento
+        (mais urgentes primeiro) para serem avaliadas pelo algoritmo de compatibilidade.
+        A paginação é feita no serviço após o cálculo dos scores.
 
-        cnae_cats_response = await self._execute(
-            self.supabase.table("cnae_categories")
-            .select("category_id")
-            .in_("cnae_id", user_cnae_ids)
-        )
-        user_category_ids = {row["category_id"] for row in cnae_cats_response.data}
-        if not user_category_ids:
-            return [], 0
+        Args:
+            user_id: ID do usuário
+            limit: Número máximo de oportunidades a buscar (padrão: 1000)
 
-        user_states_response = await self._execute(
-            self.supabase.table("user_interested_states")
-            .select("state_id")
-            .eq("user_id", user_id)
-        )
-        user_state_ids = [row["state_id"] for row in user_states_response.data]
-
-        opp_cats_response = await self._execute(
-            self.supabase.table("opportunity_categories")
-            .select("opportunity_id")
-            .in_("category_id", list(user_category_ids))
-        )
-        opportunity_ids = {row["opportunity_id"] for row in opp_cats_response.data}
-        if not opportunity_ids:
-            return [], 0
-
-        query = (
-            self.supabase.table("opportunities")
-            .select("*", count="exact")
-            .in_("id", list(opportunity_ids))
-            .eq("status", "aberto")
-        )
-        if user_state_ids:
-            query = query.in_("location_state", user_state_ids)
-
+        Returns:
+            Lista de oportunidades abertas
+        """
         response = await self._execute(
-            query.order("closing_date", desc=False).range(
-                offset, offset + page_size - 1
-            )
+            self.supabase.table("opportunities")
+            .select("*")
+            .eq("status", "aberto")
+            .order("closing_date", desc=False)
+            .limit(limit)
         )
 
         opportunities = await self._build_opportunities_from_rows(
             response.data, user_id=user_id
         )
-        return opportunities, response.count or 0
+        return opportunities
 
     async def find_favorites(
-        self, user_id: str, page: int = 1, page_size: int = 20
+        self,
+        user_id: str,
+        page: int = 1,
+        page_size: int = 20,
+        month: str | None = None,
+        valid: bool | None = None,
     ) -> tuple[list[Opportunity], int]:
+        """Busca favoritos do usuário com filtros opcionais.
+
+        Args:
+            user_id: ID do usuário
+            page: Número da página
+            page_size: Itens por página
+            month: Filtro mensal no formato YYYY-MM (baseado em created_at do favorito)
+            valid: Filtro de validade (True=válidos, False=expirados, None=todos)
+        """
         page, page_size, offset = self._normalize_pagination(page, page_size)
 
         fav_response = await self._execute(
@@ -265,12 +250,40 @@ class OpportunityRepository:
 
         opportunity_ids = [row["opportunity_id"] for row in fav_response.data]
 
-        response = await self._execute(
+        query = (
             self.supabase.table("opportunities")
             .select("*")
             .in_("id", opportunity_ids)
-            .order("closing_date", desc=False)
         )
+
+
+        if month:
+
+            start_date = f"{month}-01"
+
+            year, month_num = month.split("-")
+            next_month = int(month_num) + 1
+            next_year = year
+            if next_month > 12:
+                next_month = 1
+                next_year = str(int(year) + 1)
+            end_date = f"{next_year}-{next_month:02d}-01"
+
+            query = query.gte("created_at", start_date).lt("created_at", end_date)
+
+
+        if valid is not None:
+            from datetime import datetime
+
+            now = datetime.now(UTC).isoformat()
+            if valid:
+
+                query = query.gte("closing_date", now)
+            else:
+
+                query = query.lt("closing_date", now)
+
+        response = await self._execute(query.order("closing_date", desc=False))
 
         opportunities = await self._build_opportunities_from_rows(
             response.data, all_favorites=True
@@ -400,10 +413,21 @@ class OpportunityRepository:
 
         Retorna {"categories": set[str], "states": set[str]}.
         """
-        user_cnaes_response = await self._execute(
+        user_cnaes_task = self._execute(
             self.supabase.table("user_cnaes").select("cnae_id").eq("user_id", user_id)
         )
+        user_states_task = self._execute(
+            self.supabase.table("user_interested_states")
+            .select("state_id")
+            .eq("user_id", user_id)
+        )
+
+        user_cnaes_response, user_states_response = await asyncio.gather(
+            user_cnaes_task, user_states_task
+        )
+
         user_cnae_ids = [row["cnae_id"] for row in user_cnaes_response.data]
+        user_states: set[str] = {row["state_id"] for row in user_states_response.data}
 
         user_categories: set[str] = set()
         if user_cnae_ids:
@@ -414,14 +438,76 @@ class OpportunityRepository:
             )
             user_categories = {row["category_id"] for row in cnae_cats_response.data}
 
-        user_states_response = await self._execute(
-            self.supabase.table("user_interested_states")
-            .select("state_id")
-            .eq("user_id", user_id)
-        )
-        user_states: set[str] = {row["state_id"] for row in user_states_response.data}
-
         return {"categories": user_categories, "states": user_states}
+
+    async def get_monthly_stats(
+        self, month: str
+    ) -> dict[str, int | list[dict[str, str | int]]]:
+        """Retorna estatísticas mensais de oportunidades.
+
+        Args:
+            month: Mês no formato YYYY-MM
+
+        Returns:
+            dict com total_new_opportunities e top_categories
+        """
+        year, month_num = month.split("-")
+        start_date = f"{month}-01"
+        next_month = int(month_num) + 1
+        next_year = year
+        if next_month > 12:
+            next_month = 1
+            next_year = str(int(year) + 1)
+        end_date = f"{next_year}-{next_month:02d}-01"
+
+        count_response = await self._execute(
+            self.supabase.table("opportunities")
+            .select("*", count="exact")
+            .gte("created_at", start_date)
+            .lt("created_at", end_date)
+        )
+        total_new = count_response.count or 0
+
+        opps_response = await self._execute(
+            self.supabase.table("opportunities")
+            .select("id")
+            .gte("created_at", start_date)
+            .lt("created_at", end_date)
+        )
+        opportunity_ids = [row["id"] for row in opps_response.data]
+
+        top_categories: list[dict[str, str | int]] = []
+        if opportunity_ids:
+            cat_response = await self._execute(
+                self.supabase.table("opportunity_categories")
+                .select("category_id, categories(id, name, slug)")
+                .in_("opportunity_id", opportunity_ids)
+            )
+
+            category_counts: dict[str, dict[str, str | int]] = {}
+            for row in cat_response.data:
+                if row.get("categories"):
+                    cat_id = row["categories"]["id"]
+                    if cat_id not in category_counts:
+                        category_counts[cat_id] = {
+                            "id": cat_id,
+                            "name": row["categories"]["name"],
+                            "slug": row["categories"]["slug"],
+                            "count": 0,
+                        }
+
+                    current_count = category_counts[cat_id]["count"]
+                    category_counts[cat_id]["count"] = int(current_count) + 1
+
+
+            sorted_cats = sorted(
+                category_counts.values(),
+                key=lambda x: int(x["count"]),
+                reverse=True,
+            )
+            top_categories = sorted_cats[:5]
+
+        return {"total_new_opportunities": total_new, "top_categories": top_categories}
 
     def _row_to_opportunity(
         self,

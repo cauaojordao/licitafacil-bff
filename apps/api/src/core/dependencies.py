@@ -7,6 +7,8 @@ from supabase import Client
 
 from src.db.session import get_supabase
 from src.domain.entities.user import User
+from src.integrations.ibge import IBGEClient
+from src.integrations.ibge import ibge_client as _ibge_singleton
 from src.integrations.opencnpj import OpenCNPJClient
 from src.repositories.cnae_repository import CNAERepository
 from src.repositories.password_reset_token_repository import (
@@ -61,16 +63,22 @@ def get_auth_service(
     return AuthService(user_service, token_service, password_reset_repository)
 
 
-def get_user_mei_service(
-    user_repository: UserRepository = Depends(get_user_repository),
-    cnae_repository: CNAERepository = Depends(get_cnae_repository),
-) -> UserMEIService:
-    return UserMEIService(user_repository, cnae_repository)
-
-
 def get_opencnpj_client() -> OpenCNPJClient:
     """Retorna instância do cliente OpenCNPJ."""
     return OpenCNPJClient()
+
+
+def get_ibge_client() -> IBGEClient:
+    """Retorna o singleton do cliente IBGE."""
+    return _ibge_singleton
+
+
+def get_user_mei_service(
+    user_repository: UserRepository = Depends(get_user_repository),
+    cnae_repository: CNAERepository = Depends(get_cnae_repository),
+    opencnpj_client: OpenCNPJClient = Depends(get_opencnpj_client),
+) -> UserMEIService:
+    return UserMEIService(user_repository, cnae_repository, opencnpj_client)
 
 
 def get_user_profile_service(

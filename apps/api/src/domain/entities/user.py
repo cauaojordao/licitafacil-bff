@@ -16,5 +16,6 @@ class User(BaseModel):
     password_hash: str = Field(exclude=True)
     cnpj: str | None = None
     company_name: str | None = None
+    anonymized_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

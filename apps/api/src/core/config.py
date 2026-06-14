@@ -23,5 +23,8 @@ class Settings(BaseSettings):
     IBGE_API_URL: str
     CNPJA_API_URL: str
 
+    RATE_LIMIT_PER_MINUTE: int = 60
+    RATE_LIMIT_LOGIN_PER_MINUTE: int = 5
+
 
 settings = Settings()

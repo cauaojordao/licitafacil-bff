@@ -4,8 +4,6 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# --- Response Schemas ---
-
 
 class OpportunityCompatibilityResponse(BaseModel):
     """Schema de compatibilidade para resposta."""
@@ -28,11 +26,13 @@ class OpportunityResponse(BaseModel):
 
     id: str
     title: str
-    company: str  # nome do órgão (agency_name)
-    location: str  # "Cidade/UF"
-    description: str  # resumo curto
+    company: str
+    location: str
+    description: str
     estimated_value: Decimal = Field(..., alias="estimatedValue")
+    closing_date: str = Field(..., alias="closingDate")
     days_remaining: int = Field(..., alias="daysRemaining")
+    is_expired: bool = Field(..., alias="isExpired")
     compatibility_label: str = Field(..., alias="compatibilityLabel")
     is_favorite: bool = Field(..., alias="isFavorite")
 
@@ -50,7 +50,7 @@ class OpportunityAgencyResponse(BaseModel):
 class OpportunityDetailResponse(OpportunityResponse):
     """Schema completo para detalhe de oportunidade."""
 
-    # Campos adicionais do detalhe
+
     pncp_id: str = Field(..., alias="pncpId")
     pncp_url: str = Field(..., alias="pncpUrl")
 
@@ -60,7 +60,7 @@ class OpportunityDetailResponse(OpportunityResponse):
     object_full: str = Field(..., alias="objectFull")
     judgement_criterion: str = Field(..., alias="judgementCriterion")
 
-    opening_date: str = Field(..., alias="openingDate")  # ISO 8601
+    opening_date: str = Field(..., alias="openingDate")
     closing_date: str = Field(..., alias="closingDate")
     proposals_opening_date: str | None = Field(None, alias="proposalsOpeningDate")
 
@@ -93,20 +93,40 @@ class FavoriteToggleResponse(BaseModel):
     is_favorite: bool = Field(..., alias="isFavorite")
 
 
-# --- Request Schemas (Query Parameters) ---
+
 
 
 class OpportunitySearchParams(BaseModel):
     """Parâmetros de busca/filtros para oportunidades."""
 
-    search: str | None = None  # texto livre
-    state: str | None = None  # UF
+    search: str | None = None
+    state: str | None = None
     city: str | None = None
     modality: str | None = None
     min_value: Decimal | None = Field(None, alias="minValue")
     max_value: Decimal | None = Field(None, alias="maxValue")
-    compatibility: int | None = Field(None, ge=0, le=100)  # score mínimo
+    compatibility: int | None = Field(None, ge=0, le=100)
     page: int = Field(1, ge=1)
     page_size: int = Field(20, ge=1, le=100, alias="pageSize")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class CategoryStatsResponse(BaseModel):
+    """Schema para estatísticas de uma categoria."""
+
+    id: str
+    name: str
+    slug: str
+    count: int
+
+
+class MonthlyStatsResponse(BaseModel):
+    """Schema para estatísticas mensais de oportunidades."""
+
+    month: str
+    total_new_opportunities: int = Field(..., alias="totalNewOpportunities")
+    top_categories: list[CategoryStatsResponse] = Field(..., alias="topCategories")
+    generated_at: str = Field(..., alias="generatedAt")
 
     model_config = ConfigDict(populate_by_name=True)

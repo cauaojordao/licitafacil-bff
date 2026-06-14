@@ -10,7 +10,9 @@ from src.core.dependencies import (
 from src.domain.entities.opportunity import Opportunity
 from src.domain.entities.user import User
 from src.domain.schemas.opportunity import (
+    CategoryStatsResponse,
     FavoriteToggleResponse,
+    MonthlyStatsResponse,
     OpportunityAgencyResponse,
     OpportunityCategoryResponse,
     OpportunityCompatibilityResponse,
@@ -53,10 +55,29 @@ async def get_recommended_opportunities(
 async def get_favorite_opportunities(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
+    month: str | None = Query(
+        None,
+        pattern=r"^\d{4}-\d{2}$",
+        description="Filtro mensal no formato YYYY-MM",
+    ),
+    valid: bool | None = Query(
+        None,
+        description="Filtro de validade (true=válidos, false=expirados)",
+    ),
     current_user: User = Depends(get_current_user),
     service: OpportunityService = Depends(get_opportunity_service),
 ) -> OpportunitySearchResponse:
-    opportunities, total = await service.get_favorites(current_user.id, page, page_size)
+    """Lista editais favoritos do usuário com filtros opcionais.
+
+    Args:
+        page: Número da página
+        page_size: Itens por página
+        month: Filtro mensal (YYYY-MM) - retorna favoritos criados naquele mês
+        valid: Filtro de validade - true para válidos, false para expirados
+    """
+    opportunities, total = await service.get_favorites(
+        current_user.id, page, page_size, month, valid
+    )
 
     items = [_opp_to_response(opp) for opp in opportunities]
 
@@ -183,6 +204,44 @@ async def get_opportunity_detail(
     return _opp_to_detail_response(opportunity)
 
 
+@router.get("/stats/monthly", response_model=MonthlyStatsResponse)
+async def get_monthly_stats(
+    month: str = Query(
+        ...,
+        pattern=r"^\d{4}-\d{2}$",
+        description="Mês no formato YYYY-MM",
+    ),
+    service: OpportunityService = Depends(get_opportunity_service),
+) -> MonthlyStatsResponse:
+    """Retorna estatísticas mensais de oportunidades.
+
+    Args:
+        month: Mês no formato YYYY-MM (ex: 2026-06)
+
+    Returns:
+        Estatísticas com total de novos editais, top 5 categorias e timestamp
+    """
+    stats = await service.get_monthly_stats(month)
+
+
+    top_categories = [
+        CategoryStatsResponse(
+            id=cat["id"],
+            name=cat["name"],
+            slug=cat["slug"],
+            count=cat["count"],
+        )
+        for cat in stats["top_categories"]
+    ]
+
+    return MonthlyStatsResponse(
+        month=month,
+        totalNewOpportunities=stats["total_new_opportunities"],
+        topCategories=top_categories,
+        generatedAt=stats["generated_at"],
+    )
+
+
 def _opp_to_response(opp: Opportunity) -> OpportunityResponse:
     location = (
         f"{opp.location_city}/{opp.location_state}"
@@ -201,7 +260,9 @@ def _opp_to_response(opp: Opportunity) -> OpportunityResponse:
         location=location,
         description=opp.description or opp.title,
         estimatedValue=opp.estimated_value,
+        closingDate=opp.closing_date.isoformat(),
         daysRemaining=opp.days_remaining or 0,
+        isExpired=opp.is_expired or False,
         compatibilityLabel=compatibility_label,
         isFavorite=opp.is_favorite,
     )
@@ -239,6 +300,7 @@ def _opp_to_detail_response(opp: Opportunity) -> OpportunityDetailResponse:
         description=opp.description or opp.title,
         estimatedValue=opp.estimated_value,
         daysRemaining=opp.days_remaining or 0,
+        isExpired=opp.is_expired or False,
         compatibilityLabel=compatibility.label,
         isFavorite=opp.is_favorite,
         pncpId=opp.pncp_id,
