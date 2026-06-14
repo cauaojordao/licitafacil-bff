@@ -190,62 +190,33 @@ class OpportunityRepository:
     async def find_recommended_for_user(
         self,
         user_id: str,
-        page: int = 1,
-        page_size: int = 20,
-    ) -> tuple[list[Opportunity], int]:
-        page, page_size, offset = self._normalize_pagination(page, page_size)
+        limit: int = 1000,
+    ) -> list[Opportunity]:
+        """Busca todas as oportunidades abertas para cálculo de recomendação.
 
-        user_cnaes_response = await self._execute(
-            self.supabase.table("user_cnaes").select("cnae_id").eq("user_id", user_id)
-        )
-        user_cnae_ids = [row["cnae_id"] for row in user_cnaes_response.data]
-        if not user_cnae_ids:
-            return [], 0
+        Retorna um número limitado de oportunidades ordenadas por data de fechamento
+        (mais urgentes primeiro) para serem avaliadas pelo algoritmo de compatibilidade.
+        A paginação é feita no serviço após o cálculo dos scores.
 
-        cnae_cats_response = await self._execute(
-            self.supabase.table("cnae_categories")
-            .select("category_id")
-            .in_("cnae_id", user_cnae_ids)
-        )
-        user_category_ids = {row["category_id"] for row in cnae_cats_response.data}
-        if not user_category_ids:
-            return [], 0
+        Args:
+            user_id: ID do usuário
+            limit: Número máximo de oportunidades a buscar (padrão: 1000)
 
-        user_states_response = await self._execute(
-            self.supabase.table("user_interested_states")
-            .select("state_id")
-            .eq("user_id", user_id)
-        )
-        user_state_ids = [row["state_id"] for row in user_states_response.data]
-
-        opp_cats_response = await self._execute(
-            self.supabase.table("opportunity_categories")
-            .select("opportunity_id")
-            .in_("category_id", list(user_category_ids))
-        )
-        opportunity_ids = {row["opportunity_id"] for row in opp_cats_response.data}
-        if not opportunity_ids:
-            return [], 0
-
-        query = (
-            self.supabase.table("opportunities")
-            .select("*", count="exact")
-            .in_("id", list(opportunity_ids))
-            .eq("status", "aberto")
-        )
-        if user_state_ids:
-            query = query.in_("location_state", user_state_ids)
-
+        Returns:
+            Lista de oportunidades abertas
+        """
         response = await self._execute(
-            query.order("closing_date", desc=False).range(
-                offset, offset + page_size - 1
-            )
+            self.supabase.table("opportunities")
+            .select("*")
+            .eq("status", "aberto")
+            .order("closing_date", desc=False)
+            .limit(limit)
         )
 
         opportunities = await self._build_opportunities_from_rows(
             response.data, user_id=user_id
         )
-        return opportunities, response.count or 0
+        return opportunities
 
     async def find_favorites(
         self,
@@ -285,11 +256,11 @@ class OpportunityRepository:
             .in_("id", opportunity_ids)
         )
 
-        # Filtro mensal: baseado no created_at da oportunidade
+
         if month:
-            # Formato YYYY-MM -> range de datas
+
             start_date = f"{month}-01"
-            # Último dia do mês (aproximado, usa próximo mês dia 01)
+
             year, month_num = month.split("-")
             next_month = int(month_num) + 1
             next_year = year
@@ -300,16 +271,16 @@ class OpportunityRepository:
 
             query = query.gte("created_at", start_date).lt("created_at", end_date)
 
-        # Filtro de validade: baseado no closing_date
-        if valid is not None:
-            from datetime import UTC, datetime
 
-            now = datetime.now(UTC).isoformat()
+        if valid is not None:
+            from datetime import datetime, timezone
+
+            now = datetime.now(timezone.utc).isoformat()
             if valid:
-                # Válidos: closing_date >= now
+
                 query = query.gte("closing_date", now)
             else:
-                # Expirados: closing_date < now
+
                 query = query.lt("closing_date", now)
 
         response = await self._execute(query.order("closing_date", desc=False))
@@ -524,14 +495,14 @@ class OpportunityRepository:
                             "slug": row["categories"]["slug"],
                             "count": 0,
                         }
-                    # Incrementar count com cast explícito
-                    current_count = category_counts[cat_id]["count"]
-                    category_counts[cat_id]["count"] = int(current_count) + 1  # type: ignore
 
-            # Ordenar por count e pegar top 5
+                    current_count = category_counts[cat_id]["count"]
+                    category_counts[cat_id]["count"] = int(current_count) + 1
+
+
             sorted_cats = sorted(
                 category_counts.values(),
-                key=lambda x: int(x["count"]),  # type: ignore
+                key=lambda x: int(x["count"]),
                 reverse=True,
             )
             top_categories = sorted_cats[:5]

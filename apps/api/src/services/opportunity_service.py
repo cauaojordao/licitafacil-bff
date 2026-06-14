@@ -1,6 +1,6 @@
 """Service para lógica de negócio de oportunidades."""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from src.core.logging import get_logger, set_user_id
@@ -12,17 +12,17 @@ from src.repositories.opportunity_repository import OpportunityRepository
 
 logger = get_logger(__name__)
 
-# Pesos do algoritmo de compatibilidade (somam 100 pontos)
+
 _SCORE_CATEGORIES_MAX = 60
 _SCORE_LOCATION_MAX = 30
 _SCORE_URGENCY_MAX = 10
 
-# Thresholds de classificação (score ≥ threshold → label)
+
 _LABEL_HIGH = 80
 _LABEL_MEDIUM = 60
 _LABEL_LOW = 40
 
-# Janelas de urgência em dias
+
 _URGENCY_CRITICAL_DAYS = 3
 _URGENCY_HIGH_DAYS = 7
 _URGENCY_MEDIUM_DAYS = 14
@@ -35,10 +35,8 @@ _UNAUTHENTICATED_COMPATIBILITY = OpportunityCompatibility(
 
 
 class OpportunityService:
-    """Service para gerenciar oportunidades com lógica de compatibilidade.
-
-    OTIMIZAÇÃO: Cache do perfil do usuário por instância do service para evitar
-    múltiplas queries ao banco durante a mesma requisição.
+    """
+    Service para gerenciar oportunidades com lógica de compatibilidade.
     """
 
     def __init__(self, opportunity_repo: OpportunityRepository):
@@ -60,25 +58,49 @@ class OpportunityService:
     async def get_recommended(
         self, user_id: str, page: int = 1, page_size: int = 20
     ) -> tuple[list[Opportunity], int]:
-        # removed duplicate call
+        """Retorna oportunidades ordenadas por score de compatibilidade.
 
-        opportunities, total = await self.opportunity_repo.find_recommended_for_user(
-            user_id, page, page_size
+        Busca todas as oportunidades abertas, calcula o score de compatibilidade
+        para cada uma baseado no perfil do usuário (CNAEs, estados, urgência),
+        ordena por score (maior primeiro) e retorna a página solicitada.
+
+        Args:
+            user_id: ID do usuário
+            page: Número da página
+            page_size: Tamanho da página
+
+        Returns:
+            Tupla com lista de oportunidades da página e total geral
+        """
+        all_opportunities = await self.opportunity_repo.find_recommended_for_user(
+            user_id, limit=1000
         )
 
         user_profile = await self._get_user_profile_cached(user_id)
 
-        for opp in opportunities:
+        for opp in all_opportunities:
             self._apply_compatibility(opp, user_profile)
             self._calculate_days_remaining(opp)
 
-        opportunities.sort(
+
+        all_opportunities.sort(
             key=lambda o: o.compatibility.score if o.compatibility else 0, reverse=True
         )
 
+
+        total = len(all_opportunities)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        opportunities = all_opportunities[start_idx:end_idx]
+
         logger.info(
             "Oportunidades recomendadas carregadas",
-            extra_fields={"count": len(opportunities), "total": total, "page": page},
+            extra_fields={
+                "count": len(opportunities),
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+            },
         )
 
         return opportunities, total
@@ -94,7 +116,7 @@ class OpportunityService:
         page_size: int = 20,
         user_id: str | None = None,
     ) -> tuple[list[Opportunity], int]:
-        # removed duplicate call
+
 
         opportunities, total = await self.opportunity_repo.search(
             search=search,
@@ -127,8 +149,8 @@ class OpportunityService:
     async def get_by_id(
         self, opportunity_id: str, user_id: str | None = None
     ) -> Opportunity | None:
-        set_user_id(user_id or "anonymous")  #
-        # removed duplicate call
+        set_user_id(user_id or "anonymous")
+
 
         opportunity = await self.opportunity_repo.find_by_id(opportunity_id, user_id)
 
@@ -178,7 +200,7 @@ class OpportunityService:
         return opportunities, total
 
     async def toggle_favorite(self, user_id: str, opportunity_id: str) -> bool:
-        # removed duplicate call
+
 
         is_favorite = await self.opportunity_repo.toggle_favorite(
             user_id, opportunity_id
@@ -195,7 +217,7 @@ class OpportunityService:
         self, user_id: str, page: int = 1, page_size: int = 20
     ) -> tuple[list[Opportunity], int]:
         """Retorna oportunidades nas regiões de interesse do usuário."""
-        # removed duplicate call
+
 
         opportunities, total = await self.opportunity_repo.find_by_user_region(
             user_id, page, page_size
@@ -218,8 +240,8 @@ class OpportunityService:
         self, page: int = 1, page_size: int = 20, user_id: str | None = None
     ) -> tuple[list[Opportunity], int]:
         """Retorna oportunidades ordenadas por valor (maior para menor)."""
-        set_user_id(user_id or "anonymous")  #
-        # removed duplicate call
+        set_user_id(user_id or "anonymous")
+
 
         opportunities, total = await self.opportunity_repo.find_by_value(
             page, page_size, user_id
@@ -242,8 +264,8 @@ class OpportunityService:
         self, page: int = 1, page_size: int = 20, user_id: str | None = None
     ) -> tuple[list[Opportunity], int]:
         """Retorna oportunidades ordenadas por prazo (mais próximo do vencimento)."""
-        set_user_id(user_id or "anonymous")  #
-        # removed duplicate call
+        set_user_id(user_id or "anonymous")
+
 
         opportunities, total = await self.opportunity_repo.find_by_deadline(
             page, page_size, user_id
@@ -272,23 +294,22 @@ class OpportunityService:
             dict com total_new_opportunities (int),
             top_categories (list) e generated_at (str)
         """
-        from datetime import UTC, datetime
-
         stats = await self.opportunity_repo.get_monthly_stats(month)
 
-        # Adicionar timestamp de quando o dado foi gerado
+
         result: dict[str, int | list[dict] | str] = {
             "total_new_opportunities": stats["total_new_opportunities"],
-            "top_categories": stats["top_categories"],  # type: ignore
-            "generated_at": datetime.now(UTC).isoformat(),
+            "top_categories": stats["top_categories"],
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
+        top_categories = result["top_categories"]
         logger.info(
             "Estatísticas mensais calculadas",
             extra_fields={
                 "month": month,
                 "total": result["total_new_opportunities"],
-                "categories_count": len(result["top_categories"]),  # type: ignore
+                "categories_count": len(top_categories) if isinstance(top_categories, list) else 0,
             },
         )
 
@@ -375,11 +396,11 @@ class OpportunityService:
     def _score_urgency(
         self, opportunity: Opportunity, score: float, reasons: list[str]
     ) -> tuple[float, list[str]]:
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         closing = opportunity.closing_date
 
         if closing.tzinfo is None:
-            closing = closing.replace(tzinfo=UTC)
+            closing = closing.replace(tzinfo=timezone.utc)
 
         days = max(0, (closing - now).days)
 
@@ -406,11 +427,11 @@ class OpportunityService:
 
     def _calculate_days_remaining(self, opportunity: Opportunity) -> None:
         """Calcula dias restantes até o fechamento da oportunidade."""
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         closing = opportunity.closing_date
 
         if closing.tzinfo is None:
-            closing = closing.replace(tzinfo=UTC)
+            closing = closing.replace(tzinfo=timezone.utc)
 
         delta = (closing - now).days
         opportunity.days_remaining = max(0, delta)

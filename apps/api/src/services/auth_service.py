@@ -1,6 +1,6 @@
 """Service principal para autenticação e autorização."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from jose import JWTError
@@ -89,7 +89,7 @@ class AuthService:
         user_id = user["id"]
         code = self.password_reset_repository.generate_code()
         expires_at = (
-            datetime.now(UTC) + timedelta(minutes=settings.RESET_CODE_EXPIRE_MINUTES)
+            datetime.now(timezone.utc) + timedelta(minutes=settings.RESET_CODE_EXPIRE_MINUTES)
         ).isoformat()
 
         self.password_reset_repository.upsert_code(user_id, code, expires_at)
@@ -145,7 +145,7 @@ class AuthService:
         )
 
         expires_at = datetime.fromisoformat(code_data["expires_at"])
-        expires_in = int((expires_at - datetime.now(UTC)).total_seconds())
+        expires_in = int((expires_at - datetime.now(timezone.utc)).total_seconds())
 
         return {
             "reset_token": reset_token,

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from jose import jwt
 from passlib.context import CryptContext
@@ -18,7 +18,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def _create_token(data: dict, expires_delta: timedelta) -> str:
     payload = data.copy()
-    payload["exp"] = datetime.now(UTC) + expires_delta
+    payload["exp"] = datetime.now(timezone.utc) + expires_delta
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

@@ -1,6 +1,6 @@
 """Repository para gerenciamento de usuários."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from supabase import Client
 
@@ -133,7 +133,7 @@ class UserRepository(BaseRepository):
             user_id,
             {
                 "registration_complete": True,
-                "onboarding_completed_at": datetime.now(UTC).isoformat(),
+                "onboarding_completed_at": datetime.now(timezone.utc).isoformat(),
             },
         )
 
@@ -165,7 +165,7 @@ class UserRepository(BaseRepository):
         """
         import hashlib
 
-        timestamp = datetime.now(UTC).isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         hash_suffix = hashlib.sha256(f"{user_id}{timestamp}".encode()).hexdigest()[:8]
 
         anonymized_data = {
@@ -190,7 +190,7 @@ class UserRepository(BaseRepository):
         if not user.get("locked_until"):
             return False
         locked_until = datetime.fromisoformat(user["locked_until"])
-        return datetime.now(UTC) < locked_until
+        return datetime.now(timezone.utc) < locked_until
 
     def increment_failed_attempts(self, user_id: str) -> dict:
         """Incrementa contador de tentativas falhadas e bloqueia após limite."""
@@ -204,7 +204,7 @@ class UserRepository(BaseRepository):
         if failed_attempts >= 10:
             lock_duration_minutes = 5
             locked_until = (
-                datetime.now(UTC) + timedelta(minutes=lock_duration_minutes)
+                datetime.now(timezone.utc) + timedelta(minutes=lock_duration_minutes)
             ).isoformat()
             data["locked_until"] = locked_until
 
