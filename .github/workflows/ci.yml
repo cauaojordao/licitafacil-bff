@@ -20,6 +20,10 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            apps/*/pyproject.toml
+            libs/*/pyproject.toml
 
       - name: Instalar ruff
         run: pip install ruff
@@ -43,19 +47,43 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            apps/*/pyproject.toml
+            libs/*/pyproject.toml
 
-      - name: Instalar dependências
-        run: pip install -r requirements.txt mypy
+      - name: Instalar bibliotecas compartilhadas
+        run: |
+          pip install -e libs/common
+          pip install -e libs/clients
+
+      - name: Instalar apps e mypy
+        run: |
+          pip install -e apps/api
+          pip install -e apps/ingestion
+          pip install -e apps/processor
+          pip install -e apps/maintenance
+          pip install mypy
 
       - name: Verificar tipos
-        run: mypy src/
+        run: |
+          mypy apps/api/src apps/ingestion/src apps/processor/src apps/maintenance/src \
+            libs/common libs/clients orchestrate_prefect.py
 
   # ------------------------------------------------------------
-  # 3. Testes unitários — pytest com cobertura mínima de 60%
+  # 3. Testes unitários — pytest por app
   # ------------------------------------------------------------
   test:
-    name: Tests (pytest)
+    name: Tests (${{ matrix.project }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: api
+            working-directory: apps/api
+            cov-source: src
+            cov-fail-under: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -63,25 +91,55 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+          cache-dependency-path: apps/${{ matrix.project }}/pyproject.toml
 
-      - name: Instalar dependências
-        run: pip install -r requirements.txt pytest pytest-cov
+      - name: Instalar dependências de teste
+        working-directory: ${{ matrix.working-directory }}
+        run: pip install -e ".[dev]"
 
       - name: Executar testes
-        run: pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=60
+        working-directory: ${{ matrix.working-directory }}
+        run: |
+          pytest tests/ \
+            --cov=${{ matrix.cov-source }} \
+            --cov-report=term-missing \
+            --cov-fail-under=${{ matrix.cov-fail-under }}
         env:
-          PNCP_BASE_URL: "https://pncp.gov.br/api/pncp"
-          MONGO_URI: "mongodb://localhost:27017"
-          MONGO_DATABASE: "test_db"
-          MONGO_COLLECTION: "test_collection"
-          GEMINI_API_KEY: "fake-key-for-tests"
+          APP_NAME: LicitaFacil API Test
+          SECRET_KEY: fake-secret-key-for-ci-tests-only
+          ALGORITHM: HS256
+          ACCESS_TOKEN_EXPIRE_MINUTES: "120"
+          REFRESH_TOKEN_EXPIRE_DAYS: "7"
+          RESET_TOKEN_EXPIRE_HOURS: "1"
+          RESET_CODE_EXPIRE_MINUTES: "15"
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_KEY: fake-supabase-key
+          SMTP_HOST: localhost
+          SMTP_PORT: "587"
+          SMTP_USER: test@example.com
+          SMTP_PASSWORD: fake-password
+          EMAIL_FROM: test@example.com
+          FRONTEND_URL: http://localhost:3000
+          ALLOWED_ORIGINS: '["http://localhost:3000"]'
+          IBGE_API_URL: https://servicodados.ibge.gov.br/api/v1/localidades
+          CNPJA_API_URL: https://open.cnpja.com
 
   # ------------------------------------------------------------
-  # 4. Docker build — valida que a imagem compila sem erros
+  # 4. Docker build — valida imagens de cada serviço
   # ------------------------------------------------------------
   docker-build:
-    name: Docker Build
+    name: Docker Build (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: prefect-worker
+            context: .
+            file: Dockerfile
+          - name: api
+            context: apps/api
+            file: apps/api/Dockerfile
     steps:
       - uses: actions/checkout@v4
 
@@ -90,9 +148,10 @@ jobs:
       - name: Build da imagem (sem push)
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: false
-          tags: licitafacil-bff:ci-check
+          tags: licitafacil-${{ matrix.name }}:ci-check
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -109,15 +168,27 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            apps/*/pyproject.toml
+            libs/*/pyproject.toml
 
-      - name: Instalar pip-audit e bandit
-        run: pip install pip-audit bandit[toml]
+      - name: Instalar dependências de runtime do monorepo
+        run: |
+          pip install -e libs/common
+          pip install -e libs/clients
+          pip install -e apps/api
+          pip install -e apps/ingestion
+          pip install -e apps/processor
+          pip install -e apps/maintenance
+          pip install pip-audit "bandit[toml]"
 
       - name: Escanear dependências por vulnerabilidades conhecidas
-        run: pip-audit -r requirements.txt
+        run: pip-audit
 
       - name: Analisar código com bandit
-        run: bandit -r src/ -f json -o bandit-report.json || true
+        run: bandit -r apps/ libs/ orchestrate_prefect.py -f json -o bandit-report.json || true
 
       - name: Exibir relatório do bandit
-        run: bandit -r src/ --format screen
+        run: bandit -r apps/ libs/ orchestrate_prefect.py --format screen

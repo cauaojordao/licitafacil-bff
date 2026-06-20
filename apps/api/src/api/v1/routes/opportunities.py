@@ -223,7 +223,6 @@ async def get_monthly_stats(
     """
     stats = await service.get_monthly_stats(month)
 
-
     top_categories = [
         CategoryStatsResponse(
             id=cat["id"],

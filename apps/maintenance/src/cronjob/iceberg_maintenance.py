@@ -7,11 +7,10 @@ Deve ser executado periodicamente (ex: via cron diário).
 import logging
 import sys
 
+from common.config import Settings
 from pyspark.sql import SparkSession
 
-from common.config import Settings
 from cronjob.iceberg_writer import IcebergWriter
-
 
 logger = logging.getLogger(__name__)
 
@@ -116,9 +115,7 @@ def main() -> None:
     """
     Entry point para execução via CLI ou scheduler.
     """
-    warehouse = (
-        sys.argv[1] if len(sys.argv) > 1 else Settings.ICEBERG_WAREHOUSE_PATH
-    )
+    warehouse = sys.argv[1] if len(sys.argv) > 1 else Settings.ICEBERG_WAREHOUSE_PATH
     retention_days = int(sys.argv[2]) if len(sys.argv) > 2 else 7
 
     job = IcebergMaintenanceJob(warehouse_path=warehouse)

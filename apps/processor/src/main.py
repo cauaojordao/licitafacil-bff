@@ -11,7 +11,6 @@ import os
 from core.config import SparkSettings
 from services.streaming_service import StreamingService
 
-
 logger = logging.getLogger(__name__)
 
 

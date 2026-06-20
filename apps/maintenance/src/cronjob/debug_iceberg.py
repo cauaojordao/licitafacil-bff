@@ -4,7 +4,6 @@ import logging
 
 from pyspark.sql import SparkSession
 
-
 logger = logging.getLogger(__name__)
 
 WAREHOUSE = "/tmp/iceberg-warehouse"
@@ -12,15 +11,12 @@ TABLE = "iceberg_catalog.pncp_silver.editais_enriched"
 
 
 spark = (
-    SparkSession.builder
-    .appName("Debug-Iceberg")
+    SparkSession.builder.appName("Debug-Iceberg")
     .config(
-        "spark.jars.packages",
-        "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2"
+        "spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2"
     )
     .config(
-        "spark.sql.catalog.iceberg_catalog",
-        "org.apache.iceberg.spark.SparkCatalog"
+        "spark.sql.catalog.iceberg_catalog", "org.apache.iceberg.spark.SparkCatalog"
     )
     .config("spark.sql.catalog.iceberg_catalog.type", "hadoop")
     .config("spark.sql.catalog.iceberg_catalog.warehouse", WAREHOUSE)

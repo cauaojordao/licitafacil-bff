@@ -96,7 +96,7 @@ async def check_email_availability(
     summary="Obter perfil do usuário autenticado",
     description="""
     Retorna informações completas do usuário logado, incluindo dados da empresa e CNAEs.
-    """
+    """,
 )
 async def get_current_user_profile(
     current_user: User = Depends(get_current_user),
@@ -230,7 +230,6 @@ async def anonymize_user(
 
     return AnonymizeUserResponse(
         message="Conta anonimizada com sucesso. Dados pessoais foram removidos de forma"
-                " irreversível.",
+        " irreversível.",
         anonymized_at=anonymized_user["anonymized_at"],
     )
-

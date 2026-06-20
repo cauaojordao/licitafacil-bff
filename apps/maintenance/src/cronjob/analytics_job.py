@@ -4,11 +4,9 @@ Lê a camada Silver e materializa métricas no Supabase.
 """
 
 import logging
-import sys
 
 from apps.maintenance.src.services.analytics_service import AnalyticsService
 from libs.common.config import Settings
-
 
 logger = logging.getLogger(__name__)
 

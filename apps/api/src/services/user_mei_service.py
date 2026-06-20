@@ -1,5 +1,7 @@
 """Service para registro e gerenciamento de usuários MEI."""
 
+from typing import Any, cast
+
 from fastapi import HTTPException, status
 
 from src.core.logging import get_logger
@@ -40,7 +42,7 @@ class UserMEIService:
         cnpj: str,
         interested_state_siglas: list[str],
         cnae_ids: list[str],
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Registra um novo usuário MEI com cadastro completo.
 
@@ -136,7 +138,7 @@ class UserMEIService:
         updated_user = self.user_repository.find_by_id(user_id)
         if not updated_user:
             raise RuntimeError("Failed to reload user after registration")
-        return updated_user
+        return cast(dict[str, Any], updated_user)
 
     def check_email_availability(self, email: str) -> bool:
         """

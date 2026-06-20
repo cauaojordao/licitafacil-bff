@@ -18,9 +18,9 @@
 ### Obrigatório
 - [ ] Nenhuma credencial ou secret hardcoded no código (`MONGO_URI`, `GEMINI_API_KEY`, etc.)
 - [ ] Novas variáveis de ambiente foram adicionadas ao `settings.py` e validadas em `Settings.validate()`
-- [ ] `requirements.txt` atualizado caso dependências tenham sido adicionadas ou alteradas
+- [ ] `pyproject.toml` do(s) app(s)/lib(s) afetado(s) atualizado caso dependências tenham sido adicionadas ou alteradas
 - [ ] Linter passou sem erros (`ruff check .` — recomendado: `pip install ruff`)
-- [ ] Tipos estão corretos (`mypy src/` — recomendado: `pip install mypy`)
+- [ ] Tipos estão corretos (`mypy apps/ libs/` — recomendado: `pip install mypy`)
 - [ ] Não há `print` de debug desnecessário (prints de log intencional são permitidos)
 - [ ] Funções/classes novas possuem docstrings explicando propósito e argumentos
 - [ ] Testei alterações localmente

@@ -1,6 +1,6 @@
 """Integração com API OpenCNPJ para consulta de CNPJ."""
 
-from typing import TypedDict
+from typing import Any, TypedDict, cast
 
 import httpx
 
@@ -58,7 +58,7 @@ class OpenCNPJClient:
                     return None
 
                 response.raise_for_status()
-                return response.json()
+                return cast(dict[str, Any], response.json())
 
         except httpx.HTTPError as e:
             logger.error(
@@ -100,7 +100,7 @@ class OpenCNPJClient:
 
     def format_cnpj(self, cnpj: str) -> str:
         """Formata CNPJ alfanumérico para exibição (XX.XXX.XXX/XXXX-XX)."""
-        return _format_cnpj(cnpj)
+        return cast(str, _format_cnpj(cnpj))
 
     def clean_cnpj(self, cnpj: str) -> str:
         """Remove formatação do CNPJ e valida que possui 14 caracteres.
@@ -108,4 +108,4 @@ class OpenCNPJClient:
         Raises:
             ValueError: Se o CNPJ não tiver 14 caracteres após limpeza
         """
-        return _clean_cnpj(cnpj)
+        return cast(str, _clean_cnpj(cnpj))

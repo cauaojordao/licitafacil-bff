@@ -1,6 +1,7 @@
 """Service para gerenciamento de tokens JWT."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import Any, cast
 
 from jose import jwt
 
@@ -19,8 +20,11 @@ class TokenService:
 
     def _create_token(self, data: dict, expires_delta: timedelta) -> str:
         payload = data.copy()
-        payload["exp"] = datetime.now(UTC) + expires_delta
-        return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
+        payload["exp"] = datetime.now(timezone.utc) + expires_delta
+        return cast(
+            str,
+            jwt.encode(payload, self.secret_key, algorithm=self.algorithm),
+        )
 
     def create_access_token(self, user_id: str) -> str:
         return self._create_token(
@@ -34,17 +38,20 @@ class TokenService:
             timedelta(days=self.refresh_token_expire_days),
         )
 
-    def decode_token(self, token: str) -> dict:
-        return jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+    def decode_token(self, token: str) -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            jwt.decode(token, self.secret_key, algorithms=[self.algorithm]),
+        )
 
     def validate_access_token(self, token: str) -> str:
         payload = self.decode_token(token)
         if payload.get("type") != TokenType.ACCESS.value:
             raise ValueError("Token não é um access token")
-        return payload["sub"]
+        return cast(str, payload["sub"])
 
     def validate_refresh_token(self, token: str) -> str:
         payload = self.decode_token(token)
         if payload.get("type") != TokenType.REFRESH.value:
             raise ValueError("Token não é um refresh token")
-        return payload["sub"]
+        return cast(str, payload["sub"])

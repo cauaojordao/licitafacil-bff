@@ -1,5 +1,7 @@
 """Repository para gerenciamento de CNAEs."""
 
+from typing import Any, cast
+
 from supabase import Client
 
 
@@ -33,7 +35,7 @@ class CNAERepository:
             .maybe_single()
             .execute()
         )
-        return result.data
+        return cast(dict[str, Any] | None, result.data)
 
     def find_by_ids(self, cnae_ids: list[str]) -> list[dict]:
         """

@@ -1,5 +1,7 @@
 """Service para gerenciamento de perfil de usuário."""
 
+from typing import Any, cast
+
 from fastapi import HTTPException, status
 
 from src.core.logging import get_logger
@@ -117,8 +119,9 @@ class UserProfileService:
             user.name = name
 
         if interested_state_siglas is not None:
-            self.user_repository.link_interested_states(user.id,
-                                                        interested_state_siglas)
+            self.user_repository.link_interested_states(
+                user.id, interested_state_siglas
+            )
 
         if cnae_ids is not None:
             self.cnae_repository.link_user_cnaes(user.id, cnae_ids)
@@ -182,7 +185,7 @@ class UserProfileService:
 
         return self.get_user_profile(user)
 
-    def anonymize_user(self, user: User) -> dict:
+    def anonymize_user(self, user: User) -> dict[str, Any]:
         """Anonimiza usuário em conformidade com LGPD Art. 18."""
         anonymized_user = self.user_repository.anonymize_user(user.id)
 
@@ -194,5 +197,4 @@ class UserProfileService:
             },
         )
 
-        return anonymized_user
-
+        return cast(dict[str, Any], anonymized_user)

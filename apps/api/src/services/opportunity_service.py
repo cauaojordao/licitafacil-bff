@@ -1,6 +1,6 @@
 """Service para lógica de negócio de oportunidades."""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from src.core.logging import get_logger, set_user_id
@@ -49,9 +49,9 @@ class OpportunityService:
             return None
 
         if user_id not in self._user_profile_cache:
-            self._user_profile_cache[user_id] = (
-                await self.opportunity_repo.get_user_profile(user_id)
-            )
+            self._user_profile_cache[
+                user_id
+            ] = await self.opportunity_repo.get_user_profile(user_id)
 
         return self._user_profile_cache[user_id]
 
@@ -82,11 +82,9 @@ class OpportunityService:
             self._apply_compatibility(opp, user_profile)
             self._calculate_days_remaining(opp)
 
-
         all_opportunities.sort(
             key=lambda o: o.compatibility.score if o.compatibility else 0, reverse=True
         )
-
 
         total = len(all_opportunities)
         start_idx = (page - 1) * page_size
@@ -116,7 +114,6 @@ class OpportunityService:
         page_size: int = 20,
         user_id: str | None = None,
     ) -> tuple[list[Opportunity], int]:
-
 
         opportunities, total = await self.opportunity_repo.search(
             search=search,
@@ -150,7 +147,6 @@ class OpportunityService:
         self, opportunity_id: str, user_id: str | None = None
     ) -> Opportunity | None:
         set_user_id(user_id or "anonymous")
-
 
         opportunity = await self.opportunity_repo.find_by_id(opportunity_id, user_id)
 
@@ -201,9 +197,8 @@ class OpportunityService:
 
     async def toggle_favorite(self, user_id: str, opportunity_id: str) -> bool:
 
-
-        is_favorite = await self.opportunity_repo.toggle_favorite(
-            user_id, opportunity_id
+        is_favorite = bool(
+            await self.opportunity_repo.toggle_favorite(user_id, opportunity_id)
         )
 
         logger.info(
@@ -217,7 +212,6 @@ class OpportunityService:
         self, user_id: str, page: int = 1, page_size: int = 20
     ) -> tuple[list[Opportunity], int]:
         """Retorna oportunidades nas regiões de interesse do usuário."""
-
 
         opportunities, total = await self.opportunity_repo.find_by_user_region(
             user_id, page, page_size
@@ -242,7 +236,6 @@ class OpportunityService:
         """Retorna oportunidades ordenadas por valor (maior para menor)."""
         set_user_id(user_id or "anonymous")
 
-
         opportunities, total = await self.opportunity_repo.find_by_value(
             page, page_size, user_id
         )
@@ -265,7 +258,6 @@ class OpportunityService:
     ) -> tuple[list[Opportunity], int]:
         """Retorna oportunidades ordenadas por prazo (mais próximo do vencimento)."""
         set_user_id(user_id or "anonymous")
-
 
         opportunities, total = await self.opportunity_repo.find_by_deadline(
             page, page_size, user_id
@@ -296,11 +288,10 @@ class OpportunityService:
         """
         stats = await self.opportunity_repo.get_monthly_stats(month)
 
-
         result: dict[str, int | list[dict] | str] = {
             "total_new_opportunities": stats["total_new_opportunities"],
             "top_categories": stats["top_categories"],
-            "generated_at": datetime.now(UTC).isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         top_categories = result["top_categories"]
@@ -309,8 +300,9 @@ class OpportunityService:
             extra_fields={
                 "month": month,
                 "total": result["total_new_opportunities"],
-                "categories_count": len(top_categories) if isinstance(top_categories,
-                                                                      list) else 0,
+                "categories_count": len(top_categories)
+                if isinstance(top_categories, list)
+                else 0,
             },
         )
 
@@ -397,11 +389,11 @@ class OpportunityService:
     def _score_urgency(
         self, opportunity: Opportunity, score: float, reasons: list[str]
     ) -> tuple[float, list[str]]:
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         closing = opportunity.closing_date
 
         if closing.tzinfo is None:
-            closing = closing.replace(tzinfo=UTC)
+            closing = closing.replace(tzinfo=timezone.utc)
 
         days = max(0, (closing - now).days)
 
@@ -428,15 +420,13 @@ class OpportunityService:
 
     def _calculate_days_remaining(self, opportunity: Opportunity) -> None:
         """Calcula dias restantes até o fechamento da oportunidade."""
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         closing = opportunity.closing_date
 
         if closing.tzinfo is None:
-            closing = closing.replace(tzinfo=UTC)
-
+            closing = closing.replace(tzinfo=timezone.utc)
 
         opportunity.is_expired = closing < now
-
 
         delta = (closing - now).days
         opportunity.days_remaining = max(0, delta)

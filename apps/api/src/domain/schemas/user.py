@@ -1,5 +1,7 @@
 """Schemas para CNAE e consultas de CNPJ."""
 
+from typing import cast
+
 from pydantic import BaseModel, Field, field_validator
 
 from src.utils.cnpj import clean_cnpj as _clean_cnpj
@@ -29,6 +31,7 @@ class StateResponse(BaseModel):
     sigla: str
     nome: str
 
+
 class RegisterUserRequest(BaseModel):
     """Schema para requisição de registro completo de MEI."""
 
@@ -48,7 +51,7 @@ class RegisterUserRequest(BaseModel):
     @field_validator("cnpj")
     @classmethod
     def validate_cnpj(cls, v: str) -> str:
-        return _clean_cnpj(v)
+        return cast(str, _clean_cnpj(v))
 
     @field_validator("cnae_ids")
     @classmethod
@@ -97,7 +100,7 @@ class UpdateUserCNPJRequest(BaseModel):
     @field_validator("cnpj")
     @classmethod
     def validate_cnpj(cls, v: str) -> str:
-        return _clean_cnpj(v)
+        return cast(str, _clean_cnpj(v))
 
 
 class UpdateUserProfileRequest(BaseModel):
@@ -133,4 +136,3 @@ class AnonymizeUserResponse(BaseModel):
 
     message: str
     anonymized_at: str
-

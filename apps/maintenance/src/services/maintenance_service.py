@@ -5,7 +5,6 @@ Serviço de manutenção do Apache Iceberg.
 import logging
 
 from pyspark.sql import SparkSession
-
 from repositories.iceberg_repository import IcebergRepository
 
 logger = logging.getLogger(__name__)
@@ -67,7 +66,9 @@ class MaintenanceService:
         # Expire snapshots
         try:
             logger.info("Removendo snapshots antigos...")
-            self.iceberg_repository.expire_snapshots(database, table, expire_snapshots_days)
+            self.iceberg_repository.expire_snapshots(
+                database, table, expire_snapshots_days
+            )
             logger.info("Snapshots antigos removidos")
             results["expire_snapshots"] = True
         except Exception as e:
@@ -112,9 +113,11 @@ class MaintenanceService:
             Sessão Spark configurada.
         """
         return (
-            SparkSession.builder
-            .appName("IcebergMaintenance")
-            .config("processor.sql.extensions", "org.apache.iceberg.processor.extensions.IcebergSparkSessionExtensions")
+            SparkSession.builder.appName("IcebergMaintenance")
+            .config(
+                "processor.sql.extensions",
+                "org.apache.iceberg.processor.extensions.IcebergSparkSessionExtensions",
+            )
             .getOrCreate()
         )
 

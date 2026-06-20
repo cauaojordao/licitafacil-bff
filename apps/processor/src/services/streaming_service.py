@@ -1,12 +1,14 @@
 """
 Serviço de processamento streaming da camada Silver.
 """
-from datetime import datetime, date
+
 import json
 import logging
 import os
 import sys
+from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from pyspark.sql import DataFrame, SparkSession
 from supabase import create_client
@@ -15,7 +17,6 @@ from apps.api.src.repositories.cnae_repository import CNAERepository
 from apps.processor.src.consumer.KafkaSparkConsumer import KafkaSparkConsumer
 from apps.processor.src.repositories.iceberg_repository import IcebergRepository
 from apps.processor.src.repositories.silver_repository import SilverRepository
-
 from apps.processor.src.services.enrichment_service import EnrichmentService
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ def _normalize_for_spark(doc: dict) -> dict:
     Normaliza documento para evitar erro de inferência de schema no Spark.
     Converte dict/list para JSON string e datas/decimals para tipos simples.
     """
-    normalized = {}
+    normalized: dict[str, Any] = {}
 
     for key, value in doc.items():
         if isinstance(value, (dict, list)):
@@ -37,7 +38,6 @@ def _normalize_for_spark(doc: dict) -> dict:
 
         elif isinstance(value, Decimal):
             normalized[key] = float(value)
-
 
         elif value is None:
             normalized[key] = ""
@@ -95,15 +95,12 @@ class StreamingService:
     def run_streaming(self) -> None:
         logger.info("Iniciando Spark Streaming - Silver Layer")
 
-        self.iceberg_repository.create_database_if_not_exists(
-            self.iceberg_database
-        )
+        self.iceberg_repository.create_database_if_not_exists(self.iceberg_database)
 
         processed_df = self.kafka_consumer.read_stream()
 
         query = (
-            processed_df.writeStream
-            .foreachBatch(self._process_batch)
+            processed_df.writeStream.foreachBatch(self._process_batch)
             .outputMode("append")
             .option(
                 "checkpointLocation",
@@ -144,10 +141,7 @@ class StreamingService:
 
         documents = [row.asDict(recursive=True) for row in df.collect()]
 
-        unique_docs = {
-            doc["numero_controle_pncp"]: doc
-            for doc in documents
-        }.values()
+        unique_docs = {doc["numero_controle_pncp"]: doc for doc in documents}.values()
 
         documents = list(unique_docs)
 
@@ -156,15 +150,13 @@ class StreamingService:
         enriched_documents = self.enrichment_service.enrich_batch(documents)
 
         unique_docs = {
-            doc["numero_controle_pncp"]: doc
-            for doc in enriched_documents
+            doc["numero_controle_pncp"]: doc for doc in enriched_documents
         }.values()
 
         enriched_documents = list(unique_docs)
 
         enriched_documents = [
-            self._add_analytics_fields(doc)
-            for doc in enriched_documents
+            self._add_analytics_fields(doc) for doc in enriched_documents
         ]
 
         postgres_count = self.silver_repository.upsert_many(enriched_documents)
@@ -173,8 +165,7 @@ class StreamingService:
 
         if enriched_documents:
             normalized_documents = [
-                _normalize_for_spark(doc)
-                for doc in enriched_documents
+                _normalize_for_spark(doc) for doc in enriched_documents
             ]
 
             iceberg_df = self.spark.createDataFrame(normalized_documents)
@@ -212,14 +203,15 @@ class StreamingService:
         )
 
         return (
-            SparkSession.builder
-            .appName("PNCP-Silver-Streaming")
+            SparkSession.builder.appName("PNCP-Silver-Streaming")
             .config(
                 "spark.jars.packages",
-                ",".join([
-                    "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2",
-                    "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1",
-                ])
+                ",".join(
+                    [
+                        "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2",
+                        "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1",
+                    ]
+                ),
             )
             .config("spark.pyspark.python", sys.executable)
             .config("spark.pyspark.driver.python", sys.executable)
@@ -232,7 +224,7 @@ class StreamingService:
     def close(self) -> None:
         self.spark.stop()
 
-    def _normalize_for_spark(self, doc):
+    def _normalize_for_spark(self, doc: dict) -> dict[str, Any]:
         pass
 
     def _add_analytics_fields(self, doc: dict) -> dict:

@@ -1,6 +1,7 @@
 """Configurações compartilhadas."""
 
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -62,5 +63,6 @@ class Settings:
 
         if missing:
             raise ValueError(
-                f"As seguintes variáveis de ambiente não foram definidas: {', '.join(missing)}"
+                "As seguintes variáveis de ambiente não foram definidas: "
+                f"{', '.join(missing)}"
             )

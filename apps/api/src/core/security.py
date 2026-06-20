@@ -1,4 +1,5 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import Any, cast
 
 from jose import jwt
 from passlib.context import CryptContext
@@ -9,17 +10,20 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return cast(str, pwd_context.hash(password))
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return cast(bool, pwd_context.verify(plain, hashed))
 
 
 def _create_token(data: dict, expires_delta: timedelta) -> str:
     payload = data.copy()
-    payload["exp"] = datetime.now(UTC) + expires_delta
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    payload["exp"] = datetime.now(timezone.utc) + expires_delta
+    return cast(
+        str,
+        jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM),
+    )
 
 
 def create_access_token(user_id: str) -> str:
@@ -36,6 +40,9 @@ def create_refresh_token(user_id: str) -> str:
     )
 
 
-def decode_token(token: str) -> dict:
+def decode_token(token: str) -> dict[str, Any]:
     """Decodifica e valida um JWT. Lança JWTError se inválido ou expirado."""
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    return cast(
+        dict[str, Any],
+        jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]),
+    )

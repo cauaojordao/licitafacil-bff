@@ -4,7 +4,7 @@ Lê dados da camada Silver e grava métricas agregadas no Supabase/Postgres.
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from pyspark.sql import SparkSession
 from supabase import create_client
@@ -58,7 +58,7 @@ class AnalyticsService:
             "total_opportunities": int(row["total_opportunities"]),
             "total_estimated_value": float(row["total_estimated_value"]),
             "average_relevance": float(row["average_relevance"]),
-            "updated_at": datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         self.supabase.table("analytics_summary").upsert(payload).execute()
@@ -80,7 +80,7 @@ class AnalyticsService:
                 "uf": row["uf"],
                 "total_opportunities": int(row["total_opportunities"]),
                 "total_estimated_value": float(row["total_estimated_value"]),
-                "updated_at": datetime.now(UTC).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
             for row in df.collect()
         ]
@@ -106,7 +106,7 @@ class AnalyticsService:
                 "category": row["category"],
                 "total_opportunities": int(row["total_opportunities"]),
                 "total_estimated_value": float(row["total_estimated_value"]),
-                "updated_at": datetime.now(UTC).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
             for row in df.collect()
         ]
@@ -118,15 +118,14 @@ class AnalyticsService:
 
     def _create_spark_session(self) -> SparkSession:
         return (
-            SparkSession.builder
-            .appName("IcebergAnalytics")
+            SparkSession.builder.appName("IcebergAnalytics")
             .config(
                 "spark.jars.packages",
-                "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2"
+                "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.5.2",
             )
             .config(
                 "spark.sql.catalog.iceberg_catalog",
-                "org.apache.iceberg.spark.SparkCatalog"
+                "org.apache.iceberg.spark.SparkCatalog",
             )
             .config("spark.sql.catalog.iceberg_catalog.type", "hadoop")
             .config(

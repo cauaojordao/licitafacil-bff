@@ -4,10 +4,9 @@ Serviço de agendamento de tarefas.
 
 import logging
 import time
-from typing import Callable
+from collections.abc import Callable
 
 import schedule
-
 from core.config import CronjobSettings
 
 logger = logging.getLogger(__name__)
@@ -18,7 +17,7 @@ class SchedulerService:
     Serviço para agendamento de tarefas periódicas.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Inicializa o serviço de agendamento.
         """

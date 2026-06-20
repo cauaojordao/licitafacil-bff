@@ -50,7 +50,6 @@ class OpportunityAgencyResponse(BaseModel):
 class OpportunityDetailResponse(OpportunityResponse):
     """Schema completo para detalhe de oportunidade."""
 
-
     pncp_id: str = Field(..., alias="pncpId")
     pncp_url: str = Field(..., alias="pncpUrl")
 
@@ -91,9 +90,6 @@ class FavoriteToggleResponse(BaseModel):
 
     id: str
     is_favorite: bool = Field(..., alias="isFavorite")
-
-
-
 
 
 class OpportunitySearchParams(BaseModel):

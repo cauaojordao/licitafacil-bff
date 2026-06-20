@@ -3,6 +3,7 @@ Repository para operações avançadas do Apache Iceberg.
 """
 
 from datetime import datetime, timedelta
+
 from pyspark.sql import DataFrame, SparkSession
 
 
@@ -36,7 +37,9 @@ class IcebergRepository:
             "processor.sql.catalog.iceberg_catalog.warehouse", self.warehouse_path
         )
 
-    def compact_table(self, database: str, table: str, min_input_files: int = 2) -> None:
+    def compact_table(
+        self, database: str, table: str, min_input_files: int = 2
+    ) -> None:
         """
         Executa compaction na tabela (reescreve arquivos pequenos).
 
@@ -122,9 +125,7 @@ class IcebergRepository:
         Returns:
             DataFrame com informações dos arquivos.
         """
-        return self.spark.sql(
-            f"SELECT * FROM iceberg_catalog.{database}.{table}.files"
-        )
+        return self.spark.sql(f"SELECT * FROM iceberg_catalog.{database}.{table}.files")
 
     def _get_older_than_timestamp(self, days: int) -> str:
         """

@@ -8,11 +8,12 @@ import logging
 import os
 
 from core.config import ConsumerSettings
-from libs.clients.pncp import PNCPClient
-from apps.ingestion.src.repositories.bronze_repository import BronzeRepository
 from services.ingestion_service import IngestionService
-from apps.ingestion.src.services.kafka_service import KafkaService
 from services.transformation_service import TransformationService
+
+from apps.ingestion.src.repositories.bronze_repository import BronzeRepository
+from apps.ingestion.src.services.kafka_service import KafkaService
+from libs.clients.pncp import PNCPClient
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +66,10 @@ def main() -> None:
     )
 
     logger.info("Bronze Ingestion concluída com sucesso!")
-    logger.info("Extraídos:           %s", result['raw_records_count'])
-    logger.info("Transformados:       %s", result['transformed_records_count'])
-    logger.info("Salvos no MongoDB:   %s", result['mongo_upserted_count'])
-    logger.info("Publicados no Kafka: %s", result['kafka_published_count'])
+    logger.info("Extraídos:           %s", result["raw_records_count"])
+    logger.info("Transformados:       %s", result["transformed_records_count"])
+    logger.info("Salvos no MongoDB:   %s", result["mongo_upserted_count"])
+    logger.info("Publicados no Kafka: %s", result["kafka_published_count"])
 
     # Limpeza
     bronze_repository.close()

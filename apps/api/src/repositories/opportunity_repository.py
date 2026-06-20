@@ -1,7 +1,7 @@
 """Repository para operações com oportunidades/editais."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -251,14 +251,10 @@ class OpportunityRepository:
         opportunity_ids = [row["opportunity_id"] for row in fav_response.data]
 
         query = (
-            self.supabase.table("opportunities")
-            .select("*")
-            .in_("id", opportunity_ids)
+            self.supabase.table("opportunities").select("*").in_("id", opportunity_ids)
         )
 
-
         if month:
-
             start_date = f"{month}-01"
 
             year, month_num = month.split("-")
@@ -271,16 +267,13 @@ class OpportunityRepository:
 
             query = query.gte("created_at", start_date).lt("created_at", end_date)
 
-
         if valid is not None:
             from datetime import datetime
 
-            now = datetime.now(UTC).isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             if valid:
-
                 query = query.gte("closing_date", now)
             else:
-
                 query = query.lt("closing_date", now)
 
         response = await self._execute(query.order("closing_date", desc=False))
@@ -498,7 +491,6 @@ class OpportunityRepository:
 
                     current_count = category_counts[cat_id]["count"]
                     category_counts[cat_id]["count"] = int(current_count) + 1
-
 
             sorted_cats = sorted(
                 category_counts.values(),

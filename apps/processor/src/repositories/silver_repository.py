@@ -6,7 +6,7 @@ Persiste dados enriquecidos no PostgreSQL via Supabase.
 import logging
 import re
 import unicodedata
-from typing import Any
+from typing import Any, cast
 
 from supabase import Client
 
@@ -63,16 +63,16 @@ def _map_document_to_row(document: dict[str, Any]) -> dict[str, Any]:
         ),
         "estimated_value": float(document.get("valor_total_estimado") or 0),
         "opening_date": (
-                document.get("data_abertura_proposta")
-                or document.get("data_publicacao_pncp")
+            document.get("data_abertura_proposta")
+            or document.get("data_publicacao_pncp")
         ),
         "closing_date": (
-                document.get("data_encerramento_proposta")
-                or document.get("data_publicacao_pncp")
+            document.get("data_encerramento_proposta")
+            or document.get("data_publicacao_pncp")
         ),
         "proposals_opening_date": (
-                document.get("data_abertura_proposta")
-                or document.get("data_publicacao_pncp")
+            document.get("data_abertura_proposta")
+            or document.get("data_publicacao_pncp")
         ),
         "status": _map_status(document),
         "agency_name": str(orgao.get("razao_social") or "Não informado"),
@@ -92,8 +92,7 @@ class SilverRepository:
 
     def _get_opportunity_id(self, pncp_id: str) -> str | None:
         response = (
-            self.supabase
-            .table("opportunities")
+            self.supabase.table("opportunities")
             .select("id")
             .eq("pncp_id", pncp_id)
             .limit(1)
@@ -103,15 +102,14 @@ class SilverRepository:
         if response is None or not response.data:
             return None
 
-        return response.data[0].get("id")
+        return cast(str | None, response.data[0].get("id"))
 
     def _get_or_create_category(self, name: str) -> str | None:
         name = name or "Outros"
         slug = _slugify(name)
 
         response = (
-            self.supabase
-            .table("categories")
+            self.supabase.table("categories")
             .select("id")
             .eq("slug", slug)
             .limit(1)
@@ -119,31 +117,31 @@ class SilverRepository:
         )
 
         if response is not None and response.data:
-            return response.data[0].get("id")
+            return cast(str | None, response.data[0].get("id"))
 
         insert_response = (
-            self.supabase
-            .table("categories")
-            .insert({
-                "name": name,
-                "slug": slug,
-                "description": name,
-            })
+            self.supabase.table("categories")
+            .insert(
+                {
+                    "name": name,
+                    "slug": slug,
+                    "description": name,
+                }
+            )
             .execute()
         )
 
         if insert_response is None or not insert_response.data:
             return None
 
-        return insert_response.data[0].get("id")
+        return cast(str | None, insert_response.data[0].get("id"))
 
     def _get_category_ids_by_cnae_ids(self, cnae_ids: list[str]) -> list[str]:
         if not cnae_ids:
             return []
 
         response = (
-            self.supabase
-            .table("cnae_categories")
+            self.supabase.table("cnae_categories")
             .select("category_id")
             .in_("cnae_id", cnae_ids)
             .execute()
@@ -152,24 +150,19 @@ class SilverRepository:
         if response is None or not response.data:
             return []
 
-        return [
-            row["category_id"]
-            for row in response.data
-            if row.get("category_id")
-        ]
+        return [row["category_id"] for row in response.data if row.get("category_id")]
 
     def _link_opportunity_category_by_id(
-            self,
-            opportunity_id: str,
-            category_id: str,
-            is_primary: bool = False,
+        self,
+        opportunity_id: str,
+        category_id: str,
+        is_primary: bool = False,
     ) -> None:
         if not opportunity_id or not category_id:
             return
 
         response = (
-            self.supabase
-            .table("opportunity_categories")
+            self.supabase.table("opportunity_categories")
             .upsert(
                 {
                     "opportunity_id": opportunity_id,
@@ -188,9 +181,9 @@ class SilverRepository:
             )
 
     def _link_opportunity_categories_from_cnaes(
-            self,
-            pncp_id: str,
-            categorias_cnae: list[dict],
+        self,
+        pncp_id: str,
+        categorias_cnae: list[dict],
     ) -> None:
         try:
             opportunity_id = self._get_opportunity_id(pncp_id)
@@ -212,7 +205,7 @@ class SilverRepository:
 
             if not category_ids:
                 category_name = (
-                    categorias_cnae[0].get("descricao")
+                    str(categorias_cnae[0].get("descricao"))
                     if categorias_cnae
                     else "Outros"
                 )
@@ -243,9 +236,9 @@ class SilverRepository:
             )
 
     def _upsert_attachments(
-            self,
-            pncp_id: str,
-            document: dict[str, Any],
+        self,
+        pncp_id: str,
+        document: dict[str, Any],
     ) -> None:
         opportunity_id = self._get_opportunity_id(pncp_id)
 
@@ -253,10 +246,10 @@ class SilverRepository:
             return
 
         attachments = (
-                document.get("anexos")
-                or document.get("documentos")
-                or document.get("attachments")
-                or []
+            document.get("anexos")
+            or document.get("documentos")
+            or document.get("attachments")
+            or []
         )
 
         if not isinstance(attachments, list) or not attachments:
@@ -269,10 +262,10 @@ class SilverRepository:
                 continue
 
             url = (
-                    item.get("url")
-                    or item.get("link")
-                    or item.get("uri")
-                    or item.get("linkDownload")
+                item.get("url")
+                or item.get("link")
+                or item.get("uri")
+                or item.get("linkDownload")
             )
 
             if not url:
@@ -282,10 +275,10 @@ class SilverRepository:
                 {
                     "opportunity_id": opportunity_id,
                     "name": (
-                            item.get("name")
-                            or item.get("nome")
-                            or item.get("titulo")
-                            or "Anexo"
+                        item.get("name")
+                        or item.get("nome")
+                        or item.get("titulo")
+                        or "Anexo"
                     ),
                     "url": url,
                     "size_bytes": item.get("size_bytes") or item.get("tamanho"),
@@ -326,7 +319,7 @@ class SilverRepository:
         except Exception as e:
             logger.error(
                 "Erro ao fazer upsert de %s: %s",
-                document.get('numero_controle_pncp'),
+                document.get("numero_controle_pncp"),
                 e,
             )
             return False

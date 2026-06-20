@@ -79,7 +79,8 @@ test-spark:
 
 lint:
 	ruff check .
-	mypy apps libs
+	mypy apps/api/src apps/ingestion/src apps/processor/src apps/maintenance/src \
+		libs/common libs/clients orchestrate_prefect.py
 
 format:
 	ruff format .

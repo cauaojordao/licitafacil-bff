@@ -1,6 +1,7 @@
 """Repository para gerenciamento de usuários."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import Any, cast
 
 from supabase import Client
 
@@ -13,7 +14,7 @@ class UserRepository(BaseRepository):
     def __init__(self, db: Client):
         super().__init__(db, "users")
 
-    def find_by_email(self, email: str) -> dict | None:
+    def find_by_email(self, email: str) -> dict[str, Any] | None:
         result = (
             self.supabase.table(self.table_name)
             .select("*")
@@ -21,9 +22,9 @@ class UserRepository(BaseRepository):
             .maybe_single()
             .execute()
         )
-        return result.data if result else None
+        return cast(dict[str, Any] | None, result.data if result else None)
 
-    def find_by_cnpj(self, cnpj: str) -> dict | None:
+    def find_by_cnpj(self, cnpj: str) -> dict[str, Any] | None:
         result = (
             self.supabase.table(self.table_name)
             .select("*")
@@ -31,11 +32,11 @@ class UserRepository(BaseRepository):
             .maybe_single()
             .execute()
         )
-        return result.data if result else None
+        return cast(dict[str, Any] | None, result.data if result else None)
 
     # find_by_id já está no BaseRepository, não precisa duplicar
 
-    def create_user(self, name: str, email: str, password_hash: str) -> dict:
+    def create_user(self, name: str, email: str, password_hash: str) -> dict[str, Any]:
         """
         Cria um novo usuário (autenticação simples).
 
@@ -47,12 +48,15 @@ class UserRepository(BaseRepository):
         Returns:
             Dados do usuário criado
         """
-        return self.create(
-            {
-                "name": name,
-                "email": email,
-                "password_hash": password_hash,
-            }
+        return cast(
+            dict[str, Any],
+            self.create(
+                {
+                    "name": name,
+                    "email": email,
+                    "password_hash": password_hash,
+                }
+            ),
         )
 
     def create_mei(
@@ -62,7 +66,7 @@ class UserRepository(BaseRepository):
         password_hash: str,
         cnpj: str,
         company_name: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Cria um novo usuário MEI (sem marcar como completo ainda).
 
@@ -85,7 +89,7 @@ class UserRepository(BaseRepository):
         }
         if company_name is not None:
             data["company_name"] = company_name
-        return self.create(data)
+        return cast(dict[str, Any], self.create(data))
 
     def link_interested_states(self, user_id: str, state_ids: list[str]) -> None:
         if not state_ids:
@@ -133,19 +137,19 @@ class UserRepository(BaseRepository):
             user_id,
             {
                 "registration_complete": True,
-                "onboarding_completed_at": datetime.now(UTC).isoformat(),
+                "onboarding_completed_at": datetime.now(timezone.utc).isoformat(),
             },
         )
 
     def update_cnpj(
         self, user_id: str, cnpj: str, company_name: str | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         data: dict = {"cnpj": cnpj}
         if company_name is not None:
             data["company_name"] = company_name
-        return self.update(user_id, data)
+        return cast(dict[str, Any], self.update(user_id, data))
 
-    def update_profile(self, user_id: str, name: str | None = None) -> dict:
+    def update_profile(self, user_id: str, name: str | None = None) -> dict[str, Any]:
         """Atualiza campos do perfil do usuário."""
         data: dict = {}
         if name is not None:
@@ -154,10 +158,10 @@ class UserRepository(BaseRepository):
             user = self.find_by_id(user_id)
             if not user:
                 raise RuntimeError("Usuário não encontrado")
-            return user
-        return self.update(user_id, data)
+            return cast(dict[str, Any], user)
+        return cast(dict[str, Any], self.update(user_id, data))
 
-    def anonymize_user(self, user_id: str) -> dict:
+    def anonymize_user(self, user_id: str) -> dict[str, Any]:
         """Anonimiza usuário substituindo dados pessoais por valores irreversíveis.
 
         Compliance LGPD Art. 18 - Direito de exclusão de dados pessoais.
@@ -165,7 +169,7 @@ class UserRepository(BaseRepository):
         """
         import hashlib
 
-        timestamp = datetime.now(UTC).isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         hash_suffix = hashlib.sha256(f"{user_id}{timestamp}".encode()).hexdigest()[:8]
 
         anonymized_data = {
@@ -183,16 +187,16 @@ class UserRepository(BaseRepository):
 
         self.supabase.table("user_cnaes").delete().eq("user_id", user_id).execute()
 
-        return self.update(user_id, anonymized_data)
+        return cast(dict[str, Any], self.update(user_id, anonymized_data))
 
     def is_account_locked(self, user: dict) -> bool:
         """Verifica se a conta está bloqueada por excesso de tentativas."""
         if not user.get("locked_until"):
             return False
         locked_until = datetime.fromisoformat(user["locked_until"])
-        return datetime.now(UTC) < locked_until
+        return datetime.now(timezone.utc) < locked_until
 
-    def increment_failed_attempts(self, user_id: str) -> dict:
+    def increment_failed_attempts(self, user_id: str) -> dict[str, Any]:
         """Incrementa contador de tentativas falhadas e bloqueia após limite."""
         user = self.find_by_id(user_id)
         if not user:
@@ -204,15 +208,15 @@ class UserRepository(BaseRepository):
         if failed_attempts >= 10:
             lock_duration_minutes = 5
             locked_until = (
-                datetime.now(UTC) + timedelta(minutes=lock_duration_minutes)
+                datetime.now(timezone.utc) + timedelta(minutes=lock_duration_minutes)
             ).isoformat()
             data["locked_until"] = locked_until
 
-        return self.update(user_id, data)
+        return cast(dict[str, Any], self.update(user_id, data))
 
-    def reset_failed_attempts(self, user_id: str) -> dict:
+    def reset_failed_attempts(self, user_id: str) -> dict[str, Any]:
         """Reseta contador de tentativas falhadas após login bem-sucedido."""
-        return self.update(
-            user_id, {"failed_login_attempts": 0, "locked_until": None}
+        return cast(
+            dict[str, Any],
+            self.update(user_id, {"failed_login_attempts": 0, "locked_until": None}),
         )
-

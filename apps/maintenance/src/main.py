@@ -22,9 +22,7 @@ def run_maintenance() -> None:
 
     config = CronjobSettings.get_maintenance_config()
 
-    maintenance_service = MaintenanceService(
-        warehouse_path=config["iceberg_warehouse"]
-    )
+    maintenance_service = MaintenanceService(warehouse_path=config["iceberg_warehouse"])
 
     try:
         results = maintenance_service.run_maintenance(

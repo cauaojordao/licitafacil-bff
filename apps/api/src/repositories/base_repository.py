@@ -1,6 +1,6 @@
 """Repository base para operações CRUD reutilizáveis."""
 
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
 from supabase import Client
 
@@ -14,7 +14,7 @@ class BaseRepository(Generic[T]):
         self.supabase = supabase
         self.table_name = table_name
 
-    def find_by_id(self, id: str) -> dict | None:
+    def find_by_id(self, id: str) -> dict[str, Any] | None:
         response = (
             self.supabase.table(self.table_name)
             .select("*")
@@ -22,26 +22,28 @@ class BaseRepository(Generic[T]):
             .maybe_single()
             .execute()
         )
-        return response.data if response.data else None
+        if not response.data:
+            return None
+        return cast(dict[str, Any], response.data)
 
-    def find_all(self, limit: int | None = None) -> list[dict]:
+    def find_all(self, limit: int | None = None) -> list[dict[str, Any]]:
         query = self.supabase.table(self.table_name).select("*")
 
         if limit:
             query = query.limit(limit)
 
         response = query.execute()
-        return response.data
+        return cast(list[dict[str, Any]], response.data or [])
 
-    def create(self, data: dict) -> dict:
+    def create(self, data: dict) -> dict[str, Any]:
         response = self.supabase.table(self.table_name).insert(data).execute()
 
         if not response.data:
             raise RuntimeError(f"Failed to create {self.table_name} record")
 
-        return response.data[0]
+        return cast(dict[str, Any], response.data[0])
 
-    def update(self, id: str, data: dict) -> dict:
+    def update(self, id: str, data: dict) -> dict[str, Any]:
         response = (
             self.supabase.table(self.table_name).update(data).eq("id", id).execute()
         )
@@ -49,7 +51,7 @@ class BaseRepository(Generic[T]):
         if not response.data:
             raise RuntimeError(f"Failed to update {self.table_name} record")
 
-        return response.data[0]
+        return cast(dict[str, Any], response.data[0])
 
     def delete(self, id: str) -> None:
         self.supabase.table(self.table_name).delete().eq("id", id).execute()

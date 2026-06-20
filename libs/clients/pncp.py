@@ -4,6 +4,7 @@ Responsável por extrair dados brutos da API do PNCP.
 """
 
 from typing import Any, cast
+
 import requests
 
 

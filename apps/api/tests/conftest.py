@@ -148,10 +148,7 @@ def mock_cnae_data() -> dict[str, Any]:
         "secondary": [
             {
                 "id": "4712100",
-                "title": (
-                    "Comércio varejista de mercadorias "
-                    "em lojas de conveniência"
-                ),
+                "title": ("Comércio varejista de mercadorias em lojas de conveniência"),
             },
         ],
     }

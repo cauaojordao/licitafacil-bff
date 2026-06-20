@@ -51,9 +51,7 @@ class IcebergRepository:
         Args:
             database: Nome do database.
         """
-        self.spark.sql(
-            f"CREATE NAMESPACE IF NOT EXISTS iceberg_catalog.{database}"
-        )
+        self.spark.sql(f"CREATE NAMESPACE IF NOT EXISTS iceberg_catalog.{database}")
 
     def table_exists(self, database: str, table: str) -> bool:
         """
@@ -67,9 +65,7 @@ class IcebergRepository:
             True se a tabela existe.
         """
         try:
-            self.spark.sql(
-                f"DESCRIBE TABLE iceberg_catalog.{database}.{table}"
-            )
+            self.spark.sql(f"DESCRIBE TABLE iceberg_catalog.{database}.{table}")
             return True
         except Exception:
             return False

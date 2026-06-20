@@ -2,9 +2,7 @@
 Serviço para publicação de mensagens no Kafka.
 """
 
-import json
 import logging
-from typing import Any, List
 
 from libs.common.kafka_producer import KafkaProducer
 
@@ -27,7 +25,7 @@ class KafkaService:
         self.producer = KafkaProducer(bootstrap_servers)
         self.topic = topic
 
-    def publish_batch(self, data: List[dict]) -> int:
+    def publish_batch(self, data: list[dict]) -> int:
         """
         Publica um lote de dados no Kafka.
 

@@ -77,7 +77,9 @@ def test_list_opportunities_with_filters(
 
 
 @patch("src.core.dependencies.get_current_user")
-@patch("src.services.opportunity_service.OpportunityService.list_opportunities_by_compatibility")
+@patch(
+    "src.services.opportunity_service.OpportunityService.list_opportunities_by_compatibility"
+)
 def test_list_opportunities_by_compatibility(
     mock_list: MagicMock,
     mock_get_user: MagicMock,

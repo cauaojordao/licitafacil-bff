@@ -1,7 +1,9 @@
 """
 Configurações específicas do Cronjob.
 """
+
 from pydantic_settings import BaseSettings
+
 
 class CronjobSettings(BaseSettings):
     """

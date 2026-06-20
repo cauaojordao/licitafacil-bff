@@ -3,10 +3,9 @@ Serviço de ingestão de dados da camada Bronze.
 """
 
 import logging
-from typing import Dict
 
-from libs.clients.pncp import PNCPClient
 from apps.ingestion.src.repositories.bronze_repository import BronzeRepository
+from libs.clients.pncp import PNCPClient
 from services.kafka_service import KafkaService
 from services.transformation_service import TransformationService
 
@@ -39,7 +38,7 @@ class IngestionService:
         self.bronze_repository = bronze_repository
         self.kafka_service = kafka_service
 
-    def run_ingestion(self, endpoint: str, params: dict) -> Dict[str, int]:
+    def run_ingestion(self, endpoint: str, params: dict) -> dict[str, int]:
         """
         Executa o processo completo de ingestão.
 

@@ -49,7 +49,7 @@ class BronzeRepository:
             {"$set": document},
             upsert=True,
         )
-        return result.acknowledged
+        return bool(result.acknowledged)
 
     def upsert_many(self, documents: list[dict[str, Any]]) -> int:
         """
