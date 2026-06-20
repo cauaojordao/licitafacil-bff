@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 
 dependencies = [
     "licitafacil-common",
-    "pyspark==3.4.1",
+    "pyspark==3.5.1",
     "schedule>=1.2.0",
 ]
 

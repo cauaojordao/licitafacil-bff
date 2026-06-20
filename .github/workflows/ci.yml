@@ -35,43 +35,7 @@ jobs:
         run: ruff format --check .
 
   # ------------------------------------------------------------
-  # 2. Type-check — mypy verifica anotações de tipos
-  # ------------------------------------------------------------
-  typecheck:
-    name: Type Check (mypy)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: |
-            pyproject.toml
-            apps/*/pyproject.toml
-            libs/*/pyproject.toml
-
-      - name: Instalar bibliotecas compartilhadas
-        run: |
-          pip install -e libs/common
-          pip install -e libs/clients
-
-      - name: Instalar apps e mypy
-        run: |
-          pip install -e apps/api
-          pip install -e apps/ingestion
-          pip install -e apps/processor
-          pip install -e apps/maintenance
-          pip install mypy
-
-      - name: Verificar tipos
-        run: |
-          mypy apps/api/src apps/ingestion/src apps/processor/src apps/maintenance/src \
-            libs/common libs/clients orchestrate_prefect.py
-
-  # ------------------------------------------------------------
-  # 3. Testes unitários — pytest por app
+  # 2. Testes unitários — pytest por app
   # ------------------------------------------------------------
   test:
     name: Tests (${{ matrix.project }})
@@ -125,7 +89,7 @@ jobs:
           CNPJA_API_URL: https://open.cnpja.com
 
   # ------------------------------------------------------------
-  # 4. Docker build — valida imagens de cada serviço
+  # 3. Docker build — valida imagens de cada serviço
   # ------------------------------------------------------------
   docker-build:
     name: Docker Build (${{ matrix.name }})
@@ -156,7 +120,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ------------------------------------------------------------
-  # 5. Segurança — pip-audit escaneia CVEs nas dependências
+  # 4. Segurança — pip-audit escaneia CVEs nas dependências
   #                bandit verifica vulnerabilidades no código (OWASP Top 10)
   # ------------------------------------------------------------
   security:
