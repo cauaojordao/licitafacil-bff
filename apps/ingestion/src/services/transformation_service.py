@@ -2,7 +2,10 @@
 Serviço de transformação de dados PNCP.
 """
 
+import logging
 from typing import Any, List, Dict
+
+logger = logging.getLogger(__name__)
 
 
 class TransformationService:
@@ -28,7 +31,7 @@ class TransformationService:
                 if transformed_record:
                     transformed.append(transformed_record)
             except Exception as e:
-                print(f"⚠️ Erro ao transformar registro: {e}")
+                logger.warning("Erro ao transformar registro: %s", e)
                 continue
 
         return transformed

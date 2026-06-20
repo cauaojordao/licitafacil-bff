@@ -2,9 +2,13 @@
 Serviço de manutenção do Apache Iceberg.
 """
 
+import logging
+
 from pyspark.sql import SparkSession
 
 from repositories.iceberg_repository import IcebergRepository
+
+logger = logging.getLogger(__name__)
 
 
 class MaintenanceService:
@@ -42,28 +46,32 @@ class MaintenanceService:
         Returns:
             Dicionário com status das operações.
         """
-        print(f"🧹 Iniciando manutenção: {database}.{table}")
+        logger.info(
+            "Iniciando manutenção Iceberg: %s.%s",
+            database,
+            table,
+        )
 
         results = {}
 
         # Compaction
         try:
-            print("🗜️ Executando compaction...")
+            logger.info("Executando compaction...")
             self.iceberg_repository.compact_table(database, table, min_input_files)
-            print("✅ Compaction concluída")
+            logger.info("Compaction concluída")
             results["compaction"] = True
         except Exception as e:
-            print(f"❌ Erro na compaction: {e}")
+            logger.error("Erro na compaction: %s", e)
             results["compaction"] = False
 
         # Expire snapshots
         try:
-            print("🗑️ Removendo snapshots antigos...")
+            logger.info("Removendo snapshots antigos...")
             self.iceberg_repository.expire_snapshots(database, table, expire_snapshots_days)
-            print("✅ Snapshots antigos removidos")
+            logger.info("Snapshots antigos removidos")
             results["expire_snapshots"] = True
         except Exception as e:
-            print(f"❌ Erro ao remover snapshots: {e}")
+            logger.error("Erro ao remover snapshots: %s", e)
             results["expire_snapshots"] = False
 
         # Relatório
@@ -80,7 +88,7 @@ class MaintenanceService:
             table: Nome da tabela.
         """
         try:
-            print("📊 Gerando relatório de manutenção...")
+            logger.info("Gerando relatório de manutenção...")
 
             # História da tabela
             history_df = self.iceberg_repository.get_table_history(database, table)
@@ -90,11 +98,11 @@ class MaintenanceService:
             files_df = self.iceberg_repository.get_table_files(database, table)
             files_count = files_df.count()
 
-            print(f"📈 Snapshots ativos: {snapshots_count}")
-            print(f"📁 Arquivos de dados: {files_count}")
+            logger.info("Snapshots ativos: %s", snapshots_count)
+            logger.info("Arquivos de dados: %s", files_count)
 
         except Exception as e:
-            print(f"⚠️ Erro ao gerar relatório: {e}")
+            logger.warning("Erro ao gerar relatório: %s", e)
 
     def _create_spark_session(self) -> SparkSession:
         """

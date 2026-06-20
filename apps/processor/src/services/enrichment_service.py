@@ -4,6 +4,7 @@ Classifica editais por CNAE e gera resumo usando Gemini.
 """
 
 import json
+import logging
 import re
 import time
 from datetime import datetime
@@ -12,6 +13,8 @@ from typing import Any
 import google.generativeai as genai
 
 from apps.api.src.repositories.cnae_repository import CNAERepository
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_cnae(code: str) -> str:
@@ -91,7 +94,7 @@ class EnrichmentService:
             return cnaes or self.FALLBACK_CNAES_MEI
 
         except Exception as e:
-            print(f"⚠️ Erro ao carregar CNAEs do banco: {e}")
+            logger.error("Erro ao carregar CNAEs do banco: %s", e)
             return self.FALLBACK_CNAES_MEI
 
     def enrich_batch(self, documents: list[dict]) -> list[dict]:
@@ -280,9 +283,11 @@ Formato de Saída Obrigatório:
 
             except Exception as e:
                 last_error = e
-                print(
-                    f"⚠️ Tentativa {attempt}/{self.MAX_GEMINI_RETRIES} de chamar "
-                    f"o Gemini falhou: {e}"
+                logger.error(
+                    "Tentativa %s/%s de chamar o Gemini falhou: %s",
+                    attempt,
+                    self.MAX_GEMINI_RETRIES,
+                    e,
                 )
 
                 if attempt < self.MAX_GEMINI_RETRIES:

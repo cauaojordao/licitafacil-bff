@@ -4,12 +4,16 @@ Executa compaction e limpeza de snapshots antigos.
 Deve ser executado periodicamente (ex: via cron diário).
 """
 
+import logging
 import sys
 
 from pyspark.sql import SparkSession
 
 from common.config import Settings
 from cronjob.iceberg_writer import IcebergWriter
+
+
+logger = logging.getLogger(__name__)
 
 
 class IcebergMaintenanceJob:
@@ -61,33 +65,40 @@ class IcebergMaintenanceJob:
         Args:
             expire_snapshots_days: Dias de retenção de snapshots.
         """
-        print(f"🔧 Iniciando manutenção Iceberg: {self.database}.{self.table}")
+        logger.info(
+            "Iniciando manutenção Iceberg: %s.%s",
+            self.database,
+            self.table,
+        )
 
         # 1. Compaction (reescreve arquivos pequenos)
-        print("📦 Executando compaction...")
+        logger.info("Executando compaction...")
         try:
             self.iceberg_writer.compact_table(
                 database=self.database,
                 table=self.table,
             )
-            print("✅ Compaction concluído.")
+            logger.info("Compaction concluído.")
         except Exception as e:
-            print(f"❌ Erro no compaction: {e}")
+            logger.error("Erro no compaction: %s", e)
 
         # 2. Expire snapshots antigos
-        print(f"🗑️  Removendo snapshots anteriores a {expire_snapshots_days} dias...")
+        logger.info(
+            "Removendo snapshots anteriores a %s dias...",
+            expire_snapshots_days,
+        )
         try:
             self.iceberg_writer.expire_snapshots(
                 database=self.database,
                 table=self.table,
                 older_than_days=expire_snapshots_days,
             )
-            print("✅ Snapshots expirados.")
+            logger.info("Snapshots expirados.")
         except Exception as e:
-            print(f"❌ Erro ao expirar snapshots: {e}")
+            logger.error("Erro ao expirar snapshots: %s", e)
 
         # 3. Mostra histórico atualizado
-        print("📊 Histórico de snapshots:")
+        logger.info("Histórico de snapshots:")
         try:
             history = self.iceberg_writer.get_table_history(
                 database=self.database,
@@ -95,9 +106,9 @@ class IcebergMaintenanceJob:
             )
             history.show(truncate=False)
         except Exception as e:
-            print(f"❌ Erro ao buscar histórico: {e}")
+            logger.error("Erro ao buscar histórico: %s", e)
 
-        print("✅ Manutenção concluída!")
+        logger.info("Manutenção concluída!")
         self.spark.stop()
 
 

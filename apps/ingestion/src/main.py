@@ -4,6 +4,9 @@ Bronze Layer Consumer - PNCP Data Ingestion
 Extrai dados da API PNCP, persiste no MongoDB e publica no Kafka.
 """
 
+import logging
+import os
+
 from core.config import ConsumerSettings
 from libs.clients.pncp import PNCPClient
 from apps.ingestion.src.repositories.bronze_repository import BronzeRepository
@@ -11,11 +14,18 @@ from services.ingestion_service import IngestionService
 from apps.ingestion.src.services.kafka_service import KafkaService
 from services.transformation_service import TransformationService
 
+logger = logging.getLogger(__name__)
+
 
 def main() -> None:
     """
     Executa o job de ingestão da camada Bronze.
     """
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+
     ConsumerSettings.validate()
 
     # Configurações
@@ -54,11 +64,11 @@ def main() -> None:
         },
     )
 
-    print("✅ Bronze Ingestion concluída com sucesso!")
-    print(f"   📥 Extraídos:           {result['raw_records_count']}")
-    print(f"   🔄 Transformados:       {result['transformed_records_count']}")
-    print(f"   💾 Salvos no MongoDB:   {result['mongo_upserted_count']}")
-    print(f"   📤 Publicados no Kafka: {result['kafka_published_count']}")
+    logger.info("Bronze Ingestion concluída com sucesso!")
+    logger.info("Extraídos:           %s", result['raw_records_count'])
+    logger.info("Transformados:       %s", result['transformed_records_count'])
+    logger.info("Salvos no MongoDB:   %s", result['mongo_upserted_count'])
+    logger.info("Publicados no Kafka: %s", result['kafka_published_count'])
 
     # Limpeza
     bronze_repository.close()

@@ -3,6 +3,7 @@ Serviço de processamento streaming da camada Silver.
 """
 from datetime import datetime, date
 import json
+import logging
 import os
 import sys
 from decimal import Decimal
@@ -16,6 +17,8 @@ from apps.processor.src.repositories.iceberg_repository import IcebergRepository
 from apps.processor.src.repositories.silver_repository import SilverRepository
 
 from apps.processor.src.services.enrichment_service import EnrichmentService
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_for_spark(doc: dict) -> dict:
@@ -90,7 +93,7 @@ class StreamingService:
         )
 
     def run_streaming(self) -> None:
-        print("🚀 Iniciando Spark Streaming - Silver Layer", flush=True)
+        logger.info("Iniciando Spark Streaming - Silver Layer")
 
         self.iceberg_repository.create_database_if_not_exists(
             self.iceberg_database
@@ -110,26 +113,24 @@ class StreamingService:
             .start()
         )
 
-        print(
-            "✅ Streaming iniciado. Processando mensagens disponíveis...",
-            flush=True,
-        )
+        logger.info("Streaming iniciado. Processando mensagens disponíveis...")
 
         query.awaitTermination()
 
-        print(
-            "✅ Silver Streaming finalizado",
-            flush=True,
-        )
+        logger.info("Silver Streaming finalizado")
 
     def _process_batch(self, df: DataFrame, batch_id: int) -> None:
-        print(f"📦 Batch recebido: {batch_id}", flush=True)
+        logger.info("Batch recebido: %s", batch_id)
 
         df.persist()
 
         count = df.count()
 
-        print(f"📦 Processando batch {batch_id} com {count} registros", flush=True)
+        logger.info(
+            "Processando batch %s com %s registros",
+            batch_id,
+            count,
+        )
 
         if count == 0:
             df.unpersist()
@@ -150,7 +151,7 @@ class StreamingService:
 
         documents = list(unique_docs)
 
-        print(f"🧹 Após deduplicação: {len(documents)} registros", flush=True)
+        logger.info("Após deduplicação: %s registros", len(documents))
 
         enriched_documents = self.enrichment_service.enrich_batch(documents)
 
@@ -168,7 +169,7 @@ class StreamingService:
 
         postgres_count = self.silver_repository.upsert_many(enriched_documents)
 
-        print(f"💾 Persistidos no PostgreSQL: {postgres_count} registros", flush=True)
+        logger.info("Persistidos no PostgreSQL: %s registros", postgres_count)
 
         if enriched_documents:
             normalized_documents = [
@@ -185,9 +186,9 @@ class StreamingService:
                 mode="append",
             )
 
-            print(
-                f"🧊 Persistidos no Iceberg: {len(enriched_documents)} registros",
-                flush=True,
+            logger.info(
+                "Persistidos no Iceberg: %s registros",
+                len(enriched_documents),
             )
 
     def _create_spark_session(self) -> SparkSession:

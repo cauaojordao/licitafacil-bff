@@ -3,10 +3,14 @@ Job de analytics do Iceberg.
 Lê a camada Silver e materializa métricas no Supabase.
 """
 
+import logging
 import sys
 
 from apps.maintenance.src.services.analytics_service import AnalyticsService
 from libs.common.config import Settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class IcebergAnalyticsJob:
@@ -25,7 +29,11 @@ class IcebergAnalyticsJob:
         )
 
     def run(self) -> None:
-        print(f"📊 Executando job analytics: {self.database}.{self.table}")
+        logger.info(
+            "Executando job analytics: %s.%s",
+            self.database,
+            self.table,
+        )
 
         try:
             self.analytics_service.run_analytics(

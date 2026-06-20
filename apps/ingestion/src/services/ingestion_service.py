@@ -2,12 +2,15 @@
 Serviço de ingestão de dados da camada Bronze.
 """
 
+import logging
 from typing import Dict
 
 from libs.clients.pncp import PNCPClient
 from apps.ingestion.src.repositories.bronze_repository import BronzeRepository
 from services.kafka_service import KafkaService
 from services.transformation_service import TransformationService
+
+logger = logging.getLogger(__name__)
 
 
 class IngestionService:
@@ -47,25 +50,25 @@ class IngestionService:
         Returns:
             Dicionário com métricas do processo.
         """
-        print(f"🚀 Iniciando ingestão Bronze: {endpoint}")
+        logger.info("Iniciando ingestão Bronze: %s", endpoint)
 
         # Extração
         raw_data = self.pncp_client.fetch_all(endpoint=endpoint, params=params)
         raw_records_count = len(raw_data)
-        print(f"📥 Extraídos {raw_records_count} registros")
+        logger.info("Extraídos %s registros", raw_records_count)
 
         # Transformação
         transformed_data = self.transformation_service.transform_batch(raw_data)
         transformed_records_count = len(transformed_data)
-        print(f"🔄 Transformados {transformed_records_count} registros")
+        logger.info("Transformados %s registros", transformed_records_count)
 
         # Persistência no MongoDB
         mongo_upserted_count = self.bronze_repository.upsert_many(transformed_data)
-        print(f"💾 Salvos no MongoDB: {mongo_upserted_count} registros")
+        logger.info("Salvos no MongoDB: %s registros", mongo_upserted_count)
 
         # Publicação no Kafka
         kafka_published_count = self.kafka_service.publish_batch(transformed_data)
-        print(f"📤 Publicados no Kafka: {kafka_published_count} mensagens")
+        logger.info("Publicados no Kafka: %s mensagens", kafka_published_count)
 
         return {
             "raw_records_count": raw_records_count,

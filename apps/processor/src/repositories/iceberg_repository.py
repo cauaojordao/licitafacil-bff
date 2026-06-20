@@ -3,7 +3,11 @@ Repository para Apache Iceberg.
 Persiste dados enriquecidos no Data Lake.
 """
 
+import logging
+
 from pyspark.sql import DataFrame, SparkSession
+
+logger = logging.getLogger(__name__)
 
 
 class IcebergRepository:
@@ -91,20 +95,20 @@ class IcebergRepository:
 
         try:
             if mode == "overwrite":
-                print(f"🧊 Overwrite Iceberg: {full_table_name}")
+                logger.info("Overwrite Iceberg: %s", full_table_name)
                 if exists:
                     df.writeTo(full_table_name).replace()
                 else:
                     df.writeTo(full_table_name).create()
             else:
-                print(f"🧊 Append Iceberg: {full_table_name}")
+                logger.info("Append Iceberg: %s", full_table_name)
                 if exists:
                     df.writeTo(full_table_name).append()
                 else:
                     df.writeTo(full_table_name).create()
 
-            print(f"✅ Dados gravados com sucesso em {full_table_name}")
+            logger.info("Dados gravados com sucesso em %s", full_table_name)
 
         except Exception as e:
-            print(f"❌ Erro ao escrever no Iceberg: {e}")
+            logger.error("Erro ao escrever no Iceberg: %s", e)
             raise

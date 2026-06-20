@@ -2,12 +2,15 @@
 Serviço de agendamento de tarefas.
 """
 
+import logging
 import time
 from typing import Callable
 
 import schedule
 
 from core.config import CronjobSettings
+
+logger = logging.getLogger(__name__)
 
 
 class SchedulerService:
@@ -29,14 +32,14 @@ class SchedulerService:
             maintenance_function: Função que executa a manutenção.
         """
         schedule.every().day.at(self.settings.MAINTENANCE_HOUR).do(maintenance_function)
-        print(f"⏰ Manutenção agendada para {self.settings.MAINTENANCE_HOUR}")
+        logger.info("Manutenção agendada para %s", self.settings.MAINTENANCE_HOUR)
 
     def run_scheduler(self) -> None:
         """
         Inicia o loop do scheduler.
         """
-        print("🚀 Scheduler de cronjobs iniciado")
-        print(f"⏰ Próxima execução: {schedule.next_run()}")
+        logger.info("Scheduler de cronjobs iniciado")
+        logger.info("Próxima execução: %s", schedule.next_run())
 
         while True:
             schedule.run_pending()
@@ -49,5 +52,5 @@ class SchedulerService:
         Args:
             function: Função para executar.
         """
-        print("🏃‍♂️ Executando tarefa imediatamente...")
+        logger.info("Executando tarefa imediatamente...")
         function()

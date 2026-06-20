@@ -3,12 +3,16 @@ Serviço de analytics baseado no Iceberg.
 Lê dados da camada Silver e grava métricas agregadas no Supabase/Postgres.
 """
 
+import logging
 from datetime import UTC, datetime
 
 from pyspark.sql import SparkSession
 from supabase import create_client
 
 from apps.maintenance.src.repositories.iceberg_repository import IcebergRepository
+
+logger = logging.getLogger(__name__)
+
 
 class AnalyticsService:
     def __init__(
@@ -23,13 +27,17 @@ class AnalyticsService:
         self.supabase = create_client(supabase_url, supabase_key)
 
     def run_analytics(self, database: str, table: str) -> None:
-        print(f"📊 Iniciando analytics: {database}.{table}")
+        logger.info(
+            "Iniciando analytics: %s.%s",
+            database,
+            table,
+        )
 
         self._generate_summary(database, table)
         self._generate_by_state(database, table)
         self._generate_by_category(database, table)
 
-        print("✅ Analytics atualizado com sucesso")
+        logger.info("Analytics atualizado com sucesso")
 
     def _full_table_name(self, database: str, table: str) -> str:
         return f"iceberg_catalog.{database}.{table}"
@@ -54,7 +62,7 @@ class AnalyticsService:
         }
 
         self.supabase.table("analytics_summary").upsert(payload).execute()
-        print("✅ analytics_summary atualizado")
+        logger.info("analytics_summary atualizado")
 
     def _generate_by_state(self, database: str, table: str) -> None:
         df = self.spark.sql(f"""
@@ -80,7 +88,7 @@ class AnalyticsService:
         if rows:
             self.supabase.table("analytics_by_state").upsert(rows).execute()
 
-        print("✅ analytics_by_state atualizado")
+        logger.info("analytics_by_state atualizado")
 
     def _generate_by_category(self, database: str, table: str) -> None:
         df = self.spark.sql(f"""
@@ -106,7 +114,7 @@ class AnalyticsService:
         if rows:
             self.supabase.table("analytics_by_category").upsert(rows).execute()
 
-        print("✅ analytics_by_category atualizado")
+        logger.info("analytics_by_category atualizado")
 
     def _create_spark_session(self) -> SparkSession:
         return (

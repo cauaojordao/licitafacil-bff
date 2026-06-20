@@ -3,9 +3,13 @@ Serviço para publicação de mensagens no Kafka.
 """
 
 import json
+import logging
 from typing import Any, List
 
 from libs.common.kafka_producer import KafkaProducer
+
+logger = logging.getLogger(__name__)
+
 
 class KafkaService:
     """
@@ -35,11 +39,11 @@ class KafkaService:
         """
         try:
             published_count = self.producer.publish_many(self.topic, data)
-            print(f"📤 Publicados no Kafka: {published_count} mensagens")
+            logger.info("Publicados no Kafka: %s mensagens", published_count)
             return published_count
 
         except Exception as e:
-            print(f"❌ Erro ao publicar lote no Kafka: {e}")
+            logger.error("Erro ao publicar lote no Kafka: %s", e)
             # Fallback: tenta um por um
             published_count = 0
             for record in data:
@@ -47,7 +51,10 @@ class KafkaService:
                     self.producer.publish(self.topic, record)
                     published_count += 1
                 except Exception as individual_error:
-                    print(f"❌ Erro ao publicar registro individual no Kafka: {individual_error}")
+                    logger.error(
+                        "Erro ao publicar registro individual no Kafka: %s",
+                        individual_error,
+                    )
                     continue
             return published_count
 

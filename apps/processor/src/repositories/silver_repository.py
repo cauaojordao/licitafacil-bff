@@ -3,11 +3,14 @@ Repositório de dados processados da camada Silver.
 Persiste dados enriquecidos no PostgreSQL via Supabase.
 """
 
+import logging
 import re
 import unicodedata
 from typing import Any
 
 from supabase import Client
+
+logger = logging.getLogger(__name__)
 
 
 def _slugify(value: str) -> str:
@@ -179,9 +182,9 @@ class SilverRepository:
         )
 
         if response is None:
-            print(
-                f"⚠️ Supabase retornou None ao vincular categoria {category_id}",
-                flush=True,
+            logger.warning(
+                "Supabase retornou None ao vincular categoria %s",
+                category_id,
             )
 
     def _link_opportunity_categories_from_cnaes(
@@ -193,7 +196,7 @@ class SilverRepository:
             opportunity_id = self._get_opportunity_id(pncp_id)
 
             if not opportunity_id:
-                print(f"⚠️ Opportunity não encontrada para PNCP {pncp_id}", flush=True)
+                logger.warning("Opportunity não encontrada para PNCP %s", pncp_id)
                 return
 
             cnae_ids = []
@@ -233,7 +236,11 @@ class SilverRepository:
                 )
 
         except Exception as e:
-            print(f"⚠️ Erro ao vincular categorias CNAE de {pncp_id}: {e}", flush=True)
+            logger.error(
+                "Erro ao vincular categorias CNAE de %s: %s",
+                pncp_id,
+                e,
+            )
 
     def _upsert_attachments(
             self,
@@ -317,9 +324,10 @@ class SilverRepository:
             return True
 
         except Exception as e:
-            print(
-                f"❌ Erro ao fazer upsert de "
-                f"{document.get('numero_controle_pncp')}: {e}"
+            logger.error(
+                "Erro ao fazer upsert de %s: %s",
+                document.get('numero_controle_pncp'),
+                e,
             )
             return False
 
@@ -347,7 +355,7 @@ class SilverRepository:
                 on_conflict="pncp_id",
             ).execute()
 
-            print(f"✅ Upsert opportunities OK: {len(rows)}", flush=True)
+            logger.info("Upsert opportunities OK: %s", len(rows))
 
             for doc in documents:
                 pncp_id = str(doc.get("numero_controle_pncp") or "")
@@ -361,7 +369,11 @@ class SilverRepository:
                         categorias_cnae=doc.get("categorias_cnae") or [],
                     )
                 except Exception as e:
-                    print(f"⚠️ Erro ao vincular CNAEs de {pncp_id}: {e}", flush=True)
+                    logger.error(
+                        "Erro ao vincular CNAEs de %s: %s",
+                        pncp_id,
+                        e,
+                    )
 
                 try:
                     self._upsert_attachments(
@@ -369,12 +381,16 @@ class SilverRepository:
                         document=doc,
                     )
                 except Exception as e:
-                    print(f"⚠️ Erro ao salvar anexos de {pncp_id}: {e}", flush=True)
+                    logger.error(
+                        "Erro ao salvar anexos de %s: %s",
+                        pncp_id,
+                        e,
+                    )
 
             return len(rows)
 
         except Exception as e:
-            print(f"❌ Erro ao fazer upsert em lote: {e}", flush=True)
+            logger.error("Erro ao fazer upsert em lote: %s", e)
 
             processed = 0
 

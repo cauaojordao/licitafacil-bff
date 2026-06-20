@@ -5,14 +5,25 @@ Consome mensagens do Kafka (Bronze), processa com IA (Gemini)
 e persiste dados enriquecidos no PostgreSQL + Iceberg.
 """
 
+import logging
+import os
+
 from core.config import SparkSettings
 from services.streaming_service import StreamingService
+
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
     """
     Executa o job Spark Streaming da camada Silver.
     """
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+
     SparkSettings.validate()
 
     config = SparkSettings.get_spark_config()
@@ -32,7 +43,7 @@ def main() -> None:
     try:
         streaming_service.run_streaming()
     except KeyboardInterrupt:
-        print("🛑 Parando streaming...")
+        logger.info("Parando streaming...")
     finally:
         streaming_service.close()
 

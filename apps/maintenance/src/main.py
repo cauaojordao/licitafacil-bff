@@ -4,16 +4,21 @@ Cronjob para manutenção do Data Lake
 Executa tarefas de manutenção periódicas no Apache Iceberg.
 """
 
+import logging
+import os
+
 from core.config import CronjobSettings
 from services.maintenance_service import MaintenanceService
 from services.scheduler_service import SchedulerService
+
+logger = logging.getLogger(__name__)
 
 
 def run_maintenance() -> None:
     """
     Executa tarefa de manutenção do Iceberg.
     """
-    print("🧹 Iniciando job de manutenção do Iceberg...")
+    logger.info("Iniciando job de manutenção do Iceberg...")
 
     config = CronjobSettings.get_maintenance_config()
 
@@ -29,13 +34,13 @@ def run_maintenance() -> None:
         )
 
         # Log dos resultados
-        print("📊 Resultados da manutenção:")
+        logger.info("Resultados da manutenção:")
         for operation, success in results.items():
             status = "✅ Sucesso" if success else "❌ Falha"
-            print(f"   {operation}: {status}")
+            logger.info("   %s: %s", operation, status)
 
     except Exception as e:
-        print(f"💥 Erro durante manutenção: {e}")
+        logger.error("Erro durante manutenção: %s", e)
     finally:
         maintenance_service.close()
 
@@ -44,6 +49,11 @@ def main() -> None:
     """
     Função principal do maintenance.
     """
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+
     CronjobSettings.validate()
 
     scheduler_service = SchedulerService()
