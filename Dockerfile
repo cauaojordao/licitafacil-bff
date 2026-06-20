@@ -14,7 +14,7 @@ COPY apps/maintenance/pyproject.toml apps/maintenance/pyproject.toml
 
 RUN pip install --no-cache-dir \
     prefect \
-    pyspark==3.5.1 \
+    pyspark==3.5.2 \
     pymongo \
     kafka-python \
     python-dotenv \

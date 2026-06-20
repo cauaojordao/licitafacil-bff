@@ -69,6 +69,7 @@ jobs:
             --cov-report=term-missing \
             --cov-fail-under=${{ matrix.cov-fail-under }}
         env:
+          PYTHONPATH: src
           APP_NAME: LicitaFacil API Test
           SECRET_KEY: fake-secret-key-for-ci-tests-only
           ALGORITHM: HS256

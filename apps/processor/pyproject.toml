@@ -7,7 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "licitafacil-common",
     "licitafacil-clients",
-    "pyspark==3.5.1",
+    "pyspark==3.5.2",
     "kafka-python>=2.0.2",
     "supabase>=2.0.0",
     "google-generativeai>=0.8.0",
