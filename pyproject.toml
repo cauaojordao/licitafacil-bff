@@ -1,3 +1,14 @@
+[project]
+name = "licitafacil-bff"
+version = "1.0.0"
+description = "LicitaFacil BFF - Monorepo"
+requires-python = ">=3.11"
+readme = "README.md"
+
+dependencies = [
+    "prefect>=2.20",
+]
+
 [tool.ruff]
 line-length = 88
 target-version = "py311"
@@ -11,10 +22,10 @@ select = [
     "UP",  # pyupgrade
     "B",   # flake8-bugbear
 ]
-ignore = []
+ignore = ["UP017"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["src"]
+known-first-party = ["libs", "apps"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -25,4 +36,12 @@ check_untyped_defs = true
 warn_return_any = true
 warn_unused_ignores = true
 warn_unused_configs = true
+explicit_package_bases = true
+namespace_packages = true
 exclude = ["tests/"]
+
+[tool.pytest.ini_options]
+testpaths = ["apps/*/tests", "libs/*/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
