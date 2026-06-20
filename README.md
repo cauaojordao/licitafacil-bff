@@ -27,96 +27,11 @@ reduzindo a barreira de entrada nas licitações.
 
 ---
 
-## 🏛️ Arquitetura
-
-O projeto segue a **arquitetura Medallion (Bronze / Silver / Gold)**, com componentes
-transversais de orquestração e manutenção.
-
-![Arquitetura do LicitaFácil — camadas Bronze, Silver e Gold](docs/assets/arquitetura-visao-geral.png)
-
-### Camadas em detalhe
-
-| Camada | App | Responsabilidade | Tecnologias |
-|--------|-----|------------------|-------------|
-| **Bronze** | `apps/ingestion` | Captura crua do PNCP, normalização leve, persistência e publicação de eventos | PNCP API, MongoDB, Kafka |
-| **Silver** | `apps/processor` | Enriquecimento com IA, deduplicação, materialização versionada | Spark Structured Streaming, Gemini 2.5 Flash, Apache Iceberg, Supabase |
-| **Gold** | `apps/api` | Servir recomendações ao app (BFF) | FastAPI, JWT, PostgreSQL/Supabase (RLS) |
-| **Transversal** | `apps/maintenance` + `orchestrate_prefect.py` | Orquestração, agendamento, manutenção do data lake e analytics | Prefect, Spark, Iceberg |
-
-**Por que cada escolha:**
-
-- **MongoDB na Bronze** — o dado do PNCP é semiestruturado e muda de forma; um document
-  store evita brigar com schema rígido. O *upsert* por `numero_controle_pncp` garante
-  **idempotência** (reprocessar não duplica).
-- **Kafka entre Bronze e Silver** — desacopla ingestão de processamento. A Silver pode
-  cair, reprocessar offsets e se recuperar sem perder eventos ("at least once").
-- **Spark Structured Streaming** — processa micro-batches do Kafka com checkpoint
-  (tolerância a falha) e escala o enriquecimento.
-- **Gemini com lista fechada de CNAEs** — o prompt restringe a IA a um catálogo válido e
-  a resposta é validada contra os CNAEs oficiais; códigos inventados são descartados.
-  Há *retry* (até 3 tentativas) para resiliência a falhas transitórias da API.
-- **Apache Iceberg + Supabase** — armazenamento duplo: Iceberg guarda o histórico
-  versionado (snapshots, time travel) e o Supabase/PostgreSQL serve leituras rápidas
-  ao app.
-- **Prefect** — orquestra os flows com agendamento (cron), retries e timeouts.
-
----
-
-## 🧰 Stack tecnológica
-
-| Função | Tecnologia |
-|--------|-----------|
-| Fonte de dados | PNCP API |
-| Armazenamento bruto (Bronze) | MongoDB 7.0 |
-| Mensageria / streaming | Apache Kafka (Confluent 7.5.0) + Zookeeper |
-| Processamento distribuído | Apache Spark / PySpark |
-| Enriquecimento com IA | Google Gemini 2.5 Flash |
-| Data Lake versionado (Silver) | Apache Iceberg |
-| Banco da aplicação (Gold) | PostgreSQL via Supabase |
-| API / BFF | FastAPI + Uvicorn |
-| Orquestração | Prefect |
-| Containerização | Docker / Docker Compose |
-| Runtime | Python 3.11 + Java 17 (Spark) |
-
----
-
-## 📁 Estrutura do monorepo
-
-```
-licitafacil-bff/
-├── apps/
-│   ├── ingestion/        # Bronze — captura PNCP → MongoDB + Kafka
-│   │   └── src/{main.py, core/config.py, services/, repositories/}
-│   ├── processor/        # Silver — Spark streaming + Gemini → Iceberg + Supabase
-│   │   └── src/{main.py, core/config.py, services/, repositories/}
-│   ├── api/              # Gold — FastAPI (recomendações, auth)
-│   │   └── src/{main.py, core/, api/v1/routes/, db/, repositories/, services/}
-│   └── maintenance/      # Transversal — manutenção Iceberg + analytics agendados
-│       └── src/{main.py, core/config.py, services/, cronjob/}
-├── libs/
-│   ├── clients/          # PNCPClient (cliente da API PNCP)
-│   └── common/           # Settings base, KafkaProducer
-├── docs/                 # Documentação (ver docs/LicitaFacil-DataOps.md)
-├── orchestrate_prefect.py# Flows e deployments do Prefect
-├── run_bronze.py         # Execução manual da Bronze (por intervalo de datas)
-├── docker-compose.yml    # Stack completa (Kafka, Mongo, Prefect, API…)
-├── Dockerfile            # Imagem do worker Prefect (Python + Java + Spark)
-├── pyproject.toml        # Metadados e ferramentas (ruff, mypy, pytest)
-└── .env.example          # Template de variáveis de ambiente
-```
-
----
-
 ## ✅ Requisitos
 
-- **Docker** e **Docker Compose** (forma recomendada de executar)
-- Para execução local fora de containers:
-  - **Python 3.11+**
-  - **Java 17** (necessário para o PySpark)
-- Credenciais/segredos externos:
-  - **GEMINI_API_KEY** — chave da API do Google Gemini
-  - **SUPABASE_URL** e **SUPABASE_KEY** — projeto Supabase (camadas Silver/Gold)
-  - Acesso ao **MongoDB** (provisionado pelo Compose ou externo, ex.: Atlas)
+- **Docker** e **Docker Compose** (forma recomendada de executar).
+- Para rodar fora de containers: **Python 3.11+** e **Java 17** (necessário para o PySpark).
+- Credenciais externas: **GEMINI_API_KEY**, **SUPABASE_URL**, **SUPABASE_KEY** e acesso ao **MongoDB**.
 
 ---
 
@@ -145,14 +60,6 @@ Variáveis principais (`libs/common/config.py` define os defaults e a validaçã
 | `SPARK_CHECKPOINT_DIR` | Checkpoint do Spark Streaming | `/tmp/processor-checkpoint-silver` |
 | `LOG_LEVEL` | Nível de log (ver Observabilidade) | `INFO` |
 
-Cada app estende essa configuração base com ajustes próprios:
-`ConsumerSettings` (ingestion), `SparkSettings` (processor) e `CronjobSettings`
-(maintenance), todos com um método `validate()` que falha cedo se faltar variável
-obrigatória.
-
-> ⚠️ **Segredos nunca vão para o Git.** O `.env` é local; use o `.env.example` como
-> referência. Não commite chaves do Gemini, Supabase ou senhas de banco.
-
 ---
 
 ## 🚀 Como rodar
@@ -167,12 +74,10 @@ docker-compose up -d --build
 
 Serviços expostos:
 
-| Serviço | URL | Descrição |
-|---------|-----|-----------|
-| Prefect UI | http://localhost:4200 | Orquestração e acompanhamento dos flows |
-| Kafka UI | http://localhost:8080 | Inspeção de tópicos e mensagens |
-| API (Gold) | http://localhost:8000 | BFF — `/health` e `/api/v1/...` (Swagger em `/docs`) |
-| MongoDB | localhost:27017 | Armazenamento Bronze |
+- **Prefect UI** — http://localhost:4200 (orquestração e acompanhamento dos flows)
+- **Kafka UI** — http://localhost:8080 (inspeção de tópicos e mensagens)
+- **API (Gold)** — http://localhost:8000 (`/health`, `/api/v1/...` e Swagger em `/docs`)
+- **MongoDB** — localhost:27017 (armazenamento Bronze)
 
 O worker do Prefect (`pncp-prefect-worker`) registra os deployments ao iniciar
 (`orchestrate_prefect.py serve`).
@@ -206,6 +111,65 @@ python apps/maintenance/src/main.py       # Scheduler de manutenção
 
 O flow Bronze faz *retry* (2 tentativas, 60s de intervalo); o Silver tem timeout de
 3600s por execução.
+
+---
+
+## 🏛️ Arquitetura
+
+O projeto segue a **arquitetura Medallion (Bronze / Silver / Gold)**, com componentes
+transversais de orquestração e manutenção.
+
+![Arquitetura do LicitaFácil — camadas Bronze, Silver e Gold](docs/assets/arquitetura-visao-geral.png)
+
+A camada **Bronze** (`apps/ingestion`) captura o dado cru do PNCP, aplica uma
+normalização leve e o persiste no **MongoDB** — um document store que acomoda o formato
+semiestruturado e mutável do PNCP, com *upsert* por `numero_controle_pncp` para garantir
+idempotência (reprocessar não duplica). Cada registro é publicado no **Apache Kafka**, que
+desacopla ingestão de processamento e permite à Silver cair, reprocessar offsets e se
+recuperar sem perder eventos.
+
+A camada **Silver** (`apps/processor`) consome o Kafka em micro-batches com **Spark
+Structured Streaming** (checkpoint para tolerância a falhas), deduplica e envia cada edital
+ao **Gemini 2.5 Flash**, que classifica por CNAE, gera um resumo simplificado e um score de
+confiança. O prompt restringe a IA a um catálogo válido e a resposta é validada contra os
+CNAEs oficiais (códigos inventados são descartados), com *retry* para falhas transitórias.
+O resultado é gravado em **Apache Iceberg** (histórico versionado, com snapshots e time
+travel) e no **Supabase/PostgreSQL** (leitura rápida para o app).
+
+A camada **Gold** (`apps/api`) é o BFF em **FastAPI**: cruza os CNAEs e estados do usuário
+com as oportunidades enriquecidas e devolve recomendações ordenadas por confiança, valor ou
+prazo, com autenticação via **JWT** e isolamento por linha (RLS) no PostgreSQL/Supabase.
+
+O componente **Transversal** (`apps/maintenance` + `orchestrate_prefect.py`) usa o
+**Prefect** para orquestrar e agendar os flows (cron, retries, timeouts) e roda jobs de
+manutenção do data lake Iceberg (compactação e expiração de snapshots) e de analytics.
+
+---
+
+## 📁 Estrutura do monorepo
+
+```
+licitafacil-bff/
+├── apps/
+│   ├── ingestion/        # Bronze — captura PNCP → MongoDB + Kafka
+│   │   └── src/{main.py, core/config.py, services/, repositories/}
+│   ├── processor/        # Silver — Spark streaming + Gemini → Iceberg + Supabase
+│   │   └── src/{main.py, core/config.py, services/, repositories/}
+│   ├── api/              # Gold — FastAPI (recomendações, auth)
+│   │   └── src/{main.py, core/, api/v1/routes/, db/, repositories/, services/}
+│   └── maintenance/      # Transversal — manutenção Iceberg + analytics agendados
+│       └── src/{main.py, core/config.py, services/, cronjob/}
+├── libs/
+│   ├── clients/          # PNCPClient (cliente da API PNCP)
+│   └── common/           # Settings base, KafkaProducer
+├── docs/                 # Documentação (ver docs/LicitaFacil-DataOps.md)
+├── orchestrate_prefect.py# Flows e deployments do Prefect
+├── run_bronze.py         # Execução manual da Bronze (por intervalo de datas)
+├── docker-compose.yml    # Stack completa (Kafka, Mongo, Prefect, API…)
+├── Dockerfile            # Imagem do worker Prefect (Python + Java + Spark)
+├── pyproject.toml        # Metadados e ferramentas (ruff, mypy, pytest)
+└── .env.example          # Template de variáveis de ambiente
+```
 
 ---
 
