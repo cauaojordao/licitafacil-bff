@@ -79,9 +79,6 @@ Serviços expostos:
 - **API (Gold)** — http://localhost:8000 (`/health`, `/api/v1/...` e Swagger em `/docs`)
 - **MongoDB** — localhost:27017 (armazenamento Bronze)
 
-O worker do Prefect (`pncp-prefect-worker`) registra os deployments ao iniciar
-(`orchestrate_prefect.py serve`).
-
 ### Opção 2 — Executar pipelines manualmente
 
 Com a infra de pé, dispare os flows pelo Prefect ou rode os apps diretamente:
@@ -103,11 +100,9 @@ python apps/maintenance/src/main.py       # Scheduler de manutenção
 
 ### Deployments e agendamento (Prefect)
 
-| Deployment | Flow | Agendamento |
-|-----------|------|-------------|
-| `bronze-diario` | `bronze_pipeline` | Cron `0 7 * * *` (07h diariamente) |
-| `pipeline-completo-diario` | `full_pipeline` | Cron `0 7 * * *` |
-| `silver-manual` | `silver_pipeline` | Sob demanda |
+- **`bronze-diario`** (`bronze_pipeline`) — Cron `0 7 * * *` (07h diariamente)
+- **`pipeline-completo-diario`** (`full_pipeline`) — Cron `0 7 * * *`
+- **`silver-manual`** (`silver_pipeline`) — sob demanda
 
 O flow Bronze faz *retry* (2 tentativas, 60s de intervalo); o Silver tem timeout de
 3600s por execução.
@@ -173,22 +168,6 @@ licitafacil-bff/
 
 ---
 
-## 🔍 A jornada de um edital (fim a fim)
-
-1. **Ingestão (Bronze):** o `PNCPClient` pagina a API; cada registro é normalizado e
-   sofre *upsert* no MongoDB por `numero_controle_pncp` (idempotência) e é publicado no
-   tópico Kafka `bronze_contratacoes`.
-2. **Enriquecimento (Silver):** o Spark consome o Kafka em micro-batches, deduplica,
-   envia cada edital ao Gemini (classificação por CNAE + resumo + confiança), valida a
-   resposta contra o catálogo oficial e grava em **Iceberg** (histórico versionado) e
-   **Supabase** (leitura rápida).
-3. **Consumo (Gold):** a API cruza os CNAEs e estados do usuário com as oportunidades
-   enriquecidas e devolve recomendações ordenadas por confiança, valor ou prazo.
-4. **Manutenção (Transversal):** jobs agendados compactam arquivos pequenos e expiram
-   snapshots antigos do Iceberg, além de materializar métricas de analytics.
-
----
-
 ## 🖼️ Capturas do pipeline em execução
 
 **Bronze — dados crus no MongoDB e eventos no Kafka**
@@ -209,64 +188,3 @@ licitafacil-bff/
 
 ![Os três deployments do pipeline registrados no Prefect](docs/assets/deployments_prefect.png)
 ![Execução de um flow no Prefect com as tasks concluídas](docs/assets/run_prefect.png)
-
----
-
-## 📊 Observabilidade e logging
-
-> Este é um dos pontos que padronizamos no projeto.
-
-Todo o pipeline usa o módulo **`logging`** da biblioteca padrão — **não há `print()`**
-no código de produção. A convenção:
-
-- Cada módulo cria seu logger: `logger = logging.getLogger(__name__)`.
-- Os *entrypoints* (`main.py` de cada app) configuram o formato e o nível uma única vez:
-
-  ```python
-  logging.basicConfig(
-      level=os.getenv("LOG_LEVEL", "INFO"),
-      format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-  )
-  ```
-
-- **Níveis semânticos:**
-  - `logger.info(...)` — progresso normal (registros extraídos, batch processado, etc.)
-  - `logger.warning(...)` — situações recuperáveis (registro que falhou na transformação)
-  - `logger.error(...)` — falhas (erro ao publicar no Kafka, ao gravar no Iceberg, ao
-    chamar o Gemini)
-- **Formatação preguiçosa (lazy):** sempre `logger.info("Extraídos %s registros", n)` em
-  vez de f-strings, para que a interpolação só ocorra se o nível estiver habilitado.
-
-Ajuste a verbosidade por ambiente com a variável `LOG_LEVEL` (ex.: `DEBUG`, `INFO`,
-`WARNING`).
-
----
-
-## 🧪 Qualidade
-
-```bash
-# Lint e checagem de tipos
-ruff check .
-mypy apps libs
-
-# Formatação
-ruff format .
-
-# Testes
-pytest apps/*/tests libs/*/tests
-```
-
-O `pyproject.toml` da raiz centraliza a configuração das ferramentas (ruff com
-`line-length=88` e regras `E,W,F,I,UP,B`; mypy com `disallow_untyped_defs`; pytest
-apontando para os testes de cada app/lib).
-
----
-
-## 📚 Documentação adicional
-
-- **[`docs/LicitaFacil-DataOps.md`](docs/LicitaFacil-DataOps.md)** — documento completo
-  da arquitetura DataOps, camada por camada, com a jornada de um edital e a stack
-  tecnológica.
-- **`docs/assets/`** — diagramas de arquitetura e capturas de tela (MongoDB, Kafka,
-  Prefect, Supabase, Swagger).
-- **`docs/passo_a_passo_screencast.md`** — guia passo a passo para demonstração.
