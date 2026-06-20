@@ -50,3 +50,6 @@ python_version = "3.11"
 strict = false
 ignore_missing_imports = true
 disallow_untyped_defs = true
+
+[tool.setuptools.packages.find]
+where = ["src"] 
